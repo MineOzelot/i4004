@@ -1,0 +1,1 @@
+add_executable(i4004-vm main.c)
