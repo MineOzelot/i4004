@@ -68,7 +68,7 @@ static void linker_insert_reference(linker_state *state, symbol *sym, reference 
 			byte = (uint8_t) ((sym_offset >> 8) & 0x0F);
 			byte = (uint8_t) ((written & 0xF0) | byte);
 			sect[ref_offset] = byte;
-			byte = codegen_rearrange_byte((uint8_t) (sym_offset & 0xFF));
+			byte = (uint8_t) (sym_offset & 0xFF);
 			sect[ref_offset + 1] = byte;
 			break;
 		case REF_BYTE:

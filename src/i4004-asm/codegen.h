@@ -68,10 +68,6 @@ typedef struct {
 	bool iserr;
 } codegen_state;
 
-static inline uint8_t codegen_rearrange_byte(uint8_t byte) {
-	return (uint8_t) (((byte << 4) & 0xF0) | ((byte >> 4) & 0x0F));
-}
-
 codegen_state *codegen_from_insnlist(insn *insnlist, symtbl *tbl);
 void codegen_destroy(codegen_state *state);
 

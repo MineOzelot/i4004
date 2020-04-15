@@ -264,7 +264,7 @@ static size_t codegen_write_jcn(codegen_state *state, uint8_t cond, arg *arg, en
 	uint16_t addr = codegen_resolve_arg(state, arg, at_byte);
 
 	size_t label_offset = fragment_append(sect->current, instruction_defs[OP_JCN].opcode | cond);
-	size_t ref_offset = fragment_append(sect->current, codegen_rearrange_byte((uint8_t) addr));
+	size_t ref_offset = fragment_append(sect->current, (uint8_t) addr);
 	//TODO: handle jcn 254-255 exceptions
 
 	if(addr == RESOLVE_REFERENCE)
@@ -304,7 +304,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 				uint16_t data = codegen_resolve_arg(state, second, at_byte);
 
 				label_offset = fragment_append(sect->current, def->opcode | (pair << 1));
-				size_t ref_offset = fragment_append(sect->current, codegen_rearrange_byte((uint8_t) data));
+				size_t ref_offset = fragment_append(sect->current, (uint8_t) data);
 
 				if(data == RESOLVE_REFERENCE)
 					codegen_create_reference(state, second->ident, ref_offset, REF_BYTE, insn->section, second->line, second->column);
