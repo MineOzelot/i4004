@@ -15,6 +15,8 @@ static int start_assembler(const char *in_file, const char *out_file) {
 		return 1;
 	}
 
+	int ret_val = 1;
+
 	lexer_state *lexer = 0;
 	parser_state *parser = 0;
 	codegen_state *codegen = 0;
@@ -49,12 +51,13 @@ static int start_assembler(const char *in_file, const char *out_file) {
 	fwrite(linker->sections[SEC_CODE], SECTION_SIZE_MAX, 1, output);
 	fwrite(linker->sections[SEC_DATA], SECTION_SIZE_MAX, 1, output);
 
+	ret_val = 0;
 destroy:
 	if(output) fclose(output);
 	if(linker) linker_destroy(linker);
 	if(codegen) codegen_destroy(codegen);
 	if(parser) parser_end(parser);
-	return 0;
+	return ret_val;
 }
 
 int main(int argc, char *argv[]) {

@@ -1,1 +1,1 @@
-add_executable(i4004-vm main.c)
+add_executable(i4004-vm main.c vm.c)
