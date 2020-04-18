@@ -1,2 +1,3 @@
-.org and .page directives
+.org, .section and .page directives
 macros
+negative numbers

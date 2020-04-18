@@ -16,7 +16,6 @@ typedef struct {
 	size_t ident;
 	size_t offset;
 	enum e_symbol_type type;
-	enum e_section section;
 
 	size_t line, column;
 } symbol;
@@ -38,12 +37,11 @@ typedef struct {
 	size_t ident;
 	size_t offset;
 	enum e_reference_type type;
-	enum e_section section;
 
 	size_t line, column;
 } reference;
 
-enum e_resolve: uint16_t {
+enum e_resolve {
 	RESOLVE_NULL = 0x0000,
 
 	RESOLVE_REFERENCE = 0xFFFE,
@@ -53,7 +51,7 @@ enum e_resolve: uint16_t {
 typedef struct {
 	symtbl *tbl;
 
-	section *sections[SEC_ESIZE];
+	section *sect;
 
 	symbol *symbols;
 	reference *references;

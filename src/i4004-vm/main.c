@@ -51,18 +51,10 @@ int main(int argc, char *argv[]) {
 		goto destroy;
 	}
 
-	data_section = malloc(SECTION_SIZE_MAX);
-	read = fread(data_section, 1, SECTION_SIZE_MAX, image);
-	if(read != SECTION_SIZE_MAX) {
-		fprintf(stderr, "error: could not read data section\n");
-		goto destroy;
-	}
-
 	vm_state *vm = vm_create();
-	vm_put_section(vm, code_section, SEC_CODE);
-	vm_put_section(vm, data_section, SEC_DATA);
+	vm_put_section(vm, code_section);
 
-	while(!vm->is_terminated) vm_tick(vm);
+	vm_run(vm);
 
 	vm_destroy(vm);
 

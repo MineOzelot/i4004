@@ -3,12 +3,6 @@
 
 #define SECTION_SIZE_MAX 4096L
 
-enum e_section {
-	SEC_CODE, SEC_DATA,
-
-	SEC_ESIZE
-};
-
 enum e_index_register {
 	R0 = 0, R1,
 	R2, R3,

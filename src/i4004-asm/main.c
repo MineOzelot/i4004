@@ -36,7 +36,7 @@ static int start_assembler(const char *in_file, const char *out_file) {
 
 	linker = linker_create(lexer->symtbl);
 
-	for(int i = 0; i < SEC_ESIZE; i++) linker_put_section(linker, codegen->sections[i], (enum e_section) i);
+	linker_put_section(linker, codegen->sect);
 	if(linker->iserr) goto destroy;
 
 	linker_link(linker, codegen->symbols, codegen->references);
@@ -48,8 +48,7 @@ static int start_assembler(const char *in_file, const char *out_file) {
 		goto destroy;
 	}
 
-	fwrite(linker->sections[SEC_CODE], SECTION_SIZE_MAX, 1, output);
-	fwrite(linker->sections[SEC_DATA], SECTION_SIZE_MAX, 1, output);
+	fwrite(linker->sect, SECTION_SIZE_MAX, 1, output);
 
 	ret_val = 0;
 destroy:

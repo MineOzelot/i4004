@@ -41,7 +41,6 @@ typedef struct insn insn;
 struct insn {
 	list_head list;
 
-	enum e_section section;
 	label *lbls;
 	size_t op;
 	arg *args;
@@ -57,12 +56,8 @@ typedef struct {
 	bool iserr;
 	bool isfailed;
 
-	enum e_section cur_section;
-
 	insn *insns_head;
 	insn *insns_tail;
-
-	size_t kw_dir_code, kw_dir_data;
 } parser_state;
 
 parser_state *parser_start(lexer_state *lexer);

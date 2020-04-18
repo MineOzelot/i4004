@@ -7,47 +7,39 @@ linker_state *linker_create(symtbl *tbl) {
 	state->tbl = tbl;
 	state->iserr = false;
 
-	for(int i = 0; i < SEC_ESIZE; i++) state->sections[i] = 0;
+	state->sect = 0;
 
 	return state;
 }
 
-static const char *e_section_name(enum e_section e_sect) {
-	switch(e_sect) {
-		case SEC_CODE: return "code";
-		case SEC_DATA: return "data";
-		default: return "undefined";
-	}
-}
-
-void linker_put_section(linker_state *state, section *sect, enum e_section type) {
+void linker_put_section(linker_state *state, section *sect) {
 	if(!section_verify(sect)) {
-		fprintf(stderr, "build terminated due to error in `%s` section\n", e_section_name(type));
+		fprintf(stderr, "build terminated due to error in code section\n");
 		state->iserr = true;
 		return;
 	}
 
 	size_t section_size = section_calc_size(sect);
 	if(section_size > SECTION_SIZE_MAX) {
-		fprintf(stderr, "error: section `%s` is too big (%zu > %zu)\n",
-			e_section_name(type), section_size, SECTION_SIZE_MAX
+		fprintf(stderr, "error: code section is too big (%zu > %zu)\n",
+			section_size, SECTION_SIZE_MAX
 		);
 		state->iserr = true;
 		return;
 	}
 
-	state->sections[type] = calloc(SECTION_SIZE_MAX, 1);
+	state->sect = calloc(SECTION_SIZE_MAX, 1);
 
 	fragment *frag = sect->frag;
 	while(frag) {
-		memcpy(state->sections[type] + frag->offset, frag->bytes, frag->len);
+		memcpy(state->sect + frag->offset, frag->bytes, frag->len);
 
 		frag = (fragment *) frag->list.next;
 	}
 }
 
 static void linker_insert_reference(linker_state *state, symbol *sym, reference *ref) {
-	uint8_t *sect = state->sections[ref->section];
+	uint8_t *sect = state->sect;
 	size_t sym_offset = sym->offset;
 	size_t ref_offset = ref->offset;
 

@@ -1,6 +1,6 @@
-.data
+    jun entry
 a:  db 0x12, 0x34, 0x56; comment
-.code
+
 entry:    ;another comment
     nop
 jcns:

@@ -7,12 +7,8 @@ parser_state *parser_start(lexer_state *lexer) {
 	state->lexer = lexer;
 	state->iserr = false;
 	state->isfailed = false;
-	state->cur_section = SEC_CODE;
 
 	state->insns_head = state->insns_tail = malloc(sizeof(insn));
-
-	state->kw_dir_code = symtbl_ident(lexer->symtbl, string_from("code", 4));
-	state->kw_dir_data = symtbl_ident(lexer->symtbl, string_from("data", 4));
 
 	return state;
 }
@@ -153,7 +149,6 @@ static void parser_ident(parser_state *state) {
 		insn* new_insn = malloc(sizeof(insn));
 		new_insn->lbls = lbls;
 		new_insn->op = op;
-		new_insn->section = state->cur_section;
 		new_insn->args = arglist;
 		new_insn->line = op_line;
 		new_insn->column = op_column;
@@ -164,11 +159,7 @@ static void parser_ident(parser_state *state) {
 
 /* .code */
 static void parser_directive(parser_state *state) {
-	if(state->tok.ident == state->kw_dir_code) {
-		state->cur_section = SEC_CODE;
-	} else if(state->tok.ident == state->kw_dir_data) {
-		state->cur_section = SEC_DATA;
-	} else {
+	{
 		fprintf(stderr, "error: unrecognized directive: %s\n",
 		        symtbl_get(state->lexer->symtbl, state->tok.ident)
 		);

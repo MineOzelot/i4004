@@ -225,20 +225,19 @@ static uint8_t codegen_transform_jcn(codegen_state *state, insn *insn) {
 	return 0xFF;
 }
 
-static void codegen_create_reference(codegen_state *state, size_t ident, size_t offset, enum e_reference_type type, enum e_section sect, size_t line, size_t col) {
+static void codegen_create_reference(codegen_state *state, size_t ident, size_t offset, enum e_reference_type type, size_t line, size_t col) {
 	reference *ref = malloc(sizeof(reference));
 	ref->list.next = (list_head *) state->references;
 	ref->ident = ident;
 	ref->offset = offset;
 	ref->type = type;
-	ref->section = sect;
 	ref->line = line;
 	ref->column = col;
 
 	state->references = ref;
 }
 
-static void codegen_define_symbol(codegen_state *state, size_t ident, size_t offset, enum e_symbol_type type, enum e_section sect, size_t line, size_t col) {
+static void codegen_define_symbol(codegen_state *state, size_t ident, size_t offset, enum e_symbol_type type, size_t line, size_t col) {
 	if(symbol_find(state->symbols, ident)) {
 		fprintf(stderr, "error: double definition of symbol `%s`\n",
 		        symtbl_get(state->tbl, ident)
@@ -252,15 +251,14 @@ static void codegen_define_symbol(codegen_state *state, size_t ident, size_t off
 	sym->ident = ident;
 	sym->offset = offset;
 	sym->type = type;
-	sym->section = sect;
 	sym->line = line;
 	sym->column = col;
 
 	state->symbols = sym;
 }
 
-static size_t codegen_write_jcn(codegen_state *state, uint8_t cond, arg *arg, enum e_section e_sect) {
-	section *sect = state->sections[e_sect];
+static size_t codegen_write_jcn(codegen_state *state, uint8_t cond, arg *arg) {
+	section *sect = state->sect;
 	uint16_t addr = codegen_resolve_arg(state, arg, at_byte);
 
 	size_t label_offset = fragment_append(sect->current, instruction_defs[OP_JCN].opcode | cond);
@@ -268,14 +266,14 @@ static size_t codegen_write_jcn(codegen_state *state, uint8_t cond, arg *arg, en
 	//TODO: handle jcn 254-255 exceptions
 
 	if(addr == RESOLVE_REFERENCE)
-		codegen_create_reference(state, arg->ident, ref_offset, REF_BYTE, e_sect, arg->line, arg->column);
+		codegen_create_reference(state, arg->ident, ref_offset, REF_BYTE, arg->line, arg->column);
 
 	return label_offset;
 }
 
 static void codegen_handle_real_instruction(codegen_state *state, const insn_def *def, insn *insn) {
 	size_t args_count = list_head_size(insn->args);
-	section *sect = state->sections[insn->section];
+	section *sect = state->sect;
 
 	size_t label_offset = 0;
 
@@ -292,7 +290,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 
 				uint8_t cond = (uint8_t) codegen_resolve_arg(state, first, at_half);
 
-				label_offset = codegen_write_jcn(state, cond, second, insn->section);
+				label_offset = codegen_write_jcn(state, cond, second);
 			}
 			break;
 		case ARG_TYPE_1PAIR_2DATA:
@@ -307,7 +305,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 				size_t ref_offset = fragment_append(sect->current, (uint8_t) data);
 
 				if(data == RESOLVE_REFERENCE)
-					codegen_create_reference(state, second->ident, ref_offset, REF_BYTE, insn->section, second->line, second->column);
+					codegen_create_reference(state, second->ident, ref_offset, REF_BYTE, second->line, second->column);
 			}
 			break;
 		case ARG_TYPE_1PAIR:
@@ -329,7 +327,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 				fragment_append(sect->current, (uint8_t) (addr & 0xFF));
 
 				if(addr == RESOLVE_REFERENCE)
-					codegen_create_reference(state, first->ident, label_offset, REF_LAST_HALF_2HALF, insn->section, first->line, first->column);
+					codegen_create_reference(state, first->ident, label_offset, REF_LAST_HALF_2HALF, first->line, first->column);
 			}
 			break;
 		case ARG_TYPE_1REG:
@@ -353,7 +351,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 				size_t ref_offset = fragment_append(sect->current, (uint8_t) addr);
 
 				if(addr == RESOLVE_REFERENCE)
-					codegen_create_reference(state, second->ident, ref_offset, REF_BYTE, insn->section, second->line, second->column);
+					codegen_create_reference(state, second->ident, ref_offset, REF_BYTE, second->line, second->column);
 			}
 			break;
 		case ARG_TYPE_1DATA:
@@ -369,7 +367,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 
 	label *lbl = insn->lbls;
 	while(lbl) {
-		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, insn->section, lbl->line, lbl->column);
+		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, lbl->line, lbl->column);
 
 		lbl = (label*) lbl->list.next;
 	}
@@ -378,11 +376,11 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 static void codegen_handle_jcn_alias(codegen_state *state, const jcn_alias_def *def, insn *insn) {
 	size_t label_offset = 0;
 	if(codegen_verify_args_count(state, insn, list_head_size(insn->args), 1)) {
-		label_offset = codegen_write_jcn(state, def->cond, insn->args, insn->section);
+		label_offset = codegen_write_jcn(state, def->cond, insn->args);
 	}
 	label *lbl = insn->lbls;
 	while(lbl) {
-		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, insn->section, lbl->line, lbl->column);
+		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, lbl->line, lbl->column);
 
 		lbl = (label*) lbl->list.next;
 	}
@@ -390,7 +388,7 @@ static void codegen_handle_jcn_alias(codegen_state *state, const jcn_alias_def *
 
 static void codegen_handle_pseudo(codegen_state *state, const insn_pseudo_def *def, insn *insn) {
 	size_t label_offset = 0;
-	section *sect = state->sections[insn->section];
+	section *sect = state->sect;
 	if(def->e_pseudo == PSEUDO_DB) {
 		arg *cur_arg = insn->args;
 		bool label_not_assigned = true;
@@ -404,14 +402,14 @@ static void codegen_handle_pseudo(codegen_state *state, const insn_pseudo_def *d
 			}
 
 			if(val == RESOLVE_REFERENCE)
-				codegen_create_reference(state, cur_arg->ident, ref_offset, REF_BYTE, insn->section, cur_arg->line, cur_arg->column);
+				codegen_create_reference(state, cur_arg->ident, ref_offset, REF_BYTE, cur_arg->line, cur_arg->column);
 
 			cur_arg = (arg*) cur_arg->list.next;
 		}
 	}
 	label *lbl = insn->lbls;
 	while(lbl) {
-		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, insn->section, lbl->line, lbl->column);
+		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, lbl->line, lbl->column);
 
 		lbl = (label*) lbl->list.next;
 	}
@@ -444,9 +442,7 @@ static void codegen_handle(codegen_state *state, insn *insn) {
 
 codegen_state *codegen_from_insnlist(insn *insnlist, symtbl *tbl) {
 	codegen_state *state = malloc(sizeof(codegen_state));
-	for(int i = 0; i < SEC_ESIZE; i++) {
-		state->sections[i] = section_create();
-	}
+	state->sect = section_create();
 	state->iserr = false;
 	state->tbl = tbl;
 
@@ -469,9 +465,7 @@ void codegen_destroy(codegen_state *state) {
 	list_head_destroy(state->references);
 	list_head_destroy(state->symbols);
 
-	for(int i = 0; i < SEC_ESIZE; i++) {
-		section_destroy(state->sections[i]);
-	}
+	section_destroy(state->sect);
 
 	free(state);
 }

@@ -11,20 +11,20 @@ vm_state *vm_create() {
 	return vm;
 }
 
-void vm_put_section(vm_state *vm, uint8_t *section, enum e_section type) {
-	vm->section[type] = section;
+void vm_put_section(vm_state *vm, uint8_t *section) {
+	vm->sect = section;
 }
 
 static inline uint8_t vm_read_pc(vm_state *vm) {
-	return vm->section[SEC_CODE][vm->regs.pc++];
+	return vm->sect[vm->regs.pc++];
 }
 
-static void vm_jump_byte(vm_state *vm, uint8_t addr) {
+static inline void vm_jump_byte(vm_state *vm, uint8_t addr) {
 	uint16_t pc = (uint16_t) (vm->regs.pc & 0xF00);
 	vm->regs.pc = pc | addr;
 }
 
-static void vm_jump_word(vm_state *vm, uint16_t addr) {
+static inline void vm_jump_word(vm_state *vm, uint16_t addr) {
 	vm->regs.pc = (uint16_t) (addr & 0xFFF);
 }
 
@@ -41,52 +41,52 @@ static void vm_pop_pc(vm_state *vm) {
 	vm->regs.stack[2] = 0;
 }
 
-static ram_cell *vm_ram_get_bank(vm_state *vm) {
-	if(!vm->ram[vm->memory_bank]) vm->ram[vm->memory_bank] = calloc(VM_RAM_BANK_SIZE, sizeof(ram_cell));
+static uint8_t *vm_ram_get_bank(vm_state *vm) {
+	if(!vm->ram[vm->memory_bank]) vm->ram[vm->memory_bank] = calloc(VM_RAM_BANK_SIZE, 1);
 	return vm->ram[vm->memory_bank];
 }
 
-static void vm_ram_write(vm_state *vm, uint8_t half) {
-	ram_cell *bank = vm_ram_get_bank(vm);
-	if(vm->data_ptr & 1) {
-		bank[vm->data_ptr >> 1].b = (uint8_t) (half & 0xF);
-	} else {
-		bank[vm->data_ptr >> 1].a = (uint8_t) (half & 0xF);
-	}
+static void vm_ram_write_dp(vm_state *vm, uint8_t dp, uint8_t half) {
+	uint8_t *bank = vm_ram_get_bank(vm);
+	bank[dp] = (uint8_t) (half & 0xF);
 }
 
-static uint8_t vm_ram_read(vm_state *vm) {
-	ram_cell *bank = vm_ram_get_bank(vm);
-	if(vm->data_ptr & 1) {
-		return bank[vm->data_ptr >> 1].b;
-	} else {
-		return bank[vm->data_ptr >> 1].a;
-	}
+static inline void vm_ram_write(vm_state *vm, uint8_t half) {
+	vm_ram_write_dp(vm, vm->data_ptr, half);
 }
 
-static ram_cell *vm_status_ram_get_bank(vm_state *vm) {
-	if(!vm->status_ram[vm->memory_bank]) vm->status_ram[vm->memory_bank] = calloc(VM_STATUS_RAM_SIZE, sizeof(ram_cell));
+static uint8_t vm_ram_read_dp(vm_state *vm, uint8_t dp) {
+	uint8_t *bank = vm_ram_get_bank(vm);
+	return (uint8_t) (bank[dp] & 0xF);
+}
+
+static inline uint8_t vm_ram_read(vm_state *vm) {
+	return vm_ram_read_dp(vm, vm->data_ptr);
+}
+
+static uint8_t *vm_status_ram_get_bank(vm_state *vm) {
+	if(!vm->status_ram[vm->memory_bank]) vm->status_ram[vm->memory_bank] = calloc(VM_STATUS_RAM_SIZE, 1);
 	return vm->status_ram[vm->memory_bank];
 }
 
-static void vm_status_ram_write(vm_state *vm, uint8_t inx, uint8_t half) {
-	ram_cell *bank = vm_status_ram_get_bank(vm);
-	size_t addr = (vm->data_ptr >> 4) * inx;
-	if(inx & 1) {
-		bank[addr >> 1].b = (uint8_t) (half & 0xF);
-	} else {
-		bank[addr >> 1].a = (uint8_t) (half & 0xF);
-	}
+static void vm_status_ram_write_dp(vm_state *vm, uint8_t dp, uint8_t inx, uint8_t half) {
+	uint8_t *bank = vm_status_ram_get_bank(vm);
+	size_t addr = (dp << 2) | inx;
+	bank[addr] = (uint8_t) (half & 0xF);
 }
 
-static uint8_t vm_status_ram_read(vm_state *vm, uint8_t inx) {
-	ram_cell *bank = vm_status_ram_get_bank(vm);
-	size_t addr = (vm->data_ptr >> 4) * inx;
-	if(inx & 1) {
-		return bank[addr >> 1].b;
-	} else {
-		return bank[addr >> 1].a;
-	}
+static inline void vm_status_ram_write(vm_state *vm, uint8_t inx, uint8_t half) {
+	vm_status_ram_write_dp(vm, vm->data_ptr, inx, half);
+}
+
+static uint8_t vm_status_ram_read_dp(vm_state *vm, uint8_t dp, uint8_t inx) {
+	uint8_t *bank = vm_status_ram_get_bank(vm);
+	size_t addr = (dp << 2) | inx;
+	return bank[addr];
+}
+
+static inline uint8_t vm_status_ram_read(vm_state *vm, uint8_t inx) {
+	return vm_status_ram_read_dp(vm, vm->data_ptr, inx);
 }
 
 static inline void vm_exec_jcn(vm_state *vm, uint8_t cond, uint8_t addr) {
@@ -113,7 +113,7 @@ static inline void vm_exec_src(vm_state *vm, uint8_t pair) {
 static inline void vm_exec_fin(vm_state *vm, uint8_t pair) {
 	uint8_t r0_r1 = (vm->regs.in_regs[0] << 4) | vm->regs.in_regs[1];
 	uint16_t addr = (uint16_t) (vm->regs.pc & 0xF00) | r0_r1;
-	uint8_t data = vm->section[SEC_DATA][addr];
+	uint8_t data = vm->sect[addr];
 	vm->regs.in_regs[pair] = (uint8_t) ((data >> 4) & 0xF);
 	vm->regs.in_regs[pair + 1] = (uint8_t) (data & 0xF);
 }
@@ -133,7 +133,7 @@ static inline void vm_exec_jms(vm_state *vm, uint16_t addr) {
 }
 
 static inline void vm_exec_inc(vm_state *vm, uint8_t reg) {
-	vm->regs.in_regs[reg] = (uint8_t) (vm->regs.in_regs[reg] & 0xF);
+	vm->regs.in_regs[reg] = (uint8_t) ((vm->regs.in_regs[reg] + 1) & 0xF);
 }
 
 static inline void vm_exec_isz(vm_state *vm, uint8_t reg, uint8_t addr) {
@@ -187,6 +187,7 @@ static inline void vm_exec_wmp(vm_state *vm) {
 
 static inline void vm_exec_wrr(vm_state *vm) {
 	//TODO: IO
+	printf("wrr: %X\n", vm->regs.accum);
 }
 
 static inline void vm_exec_wpm(vm_state *vm) {
@@ -276,14 +277,14 @@ static inline void vm_exec_cma(vm_state *vm) {
 
 static inline void vm_exec_ral(vm_state *vm) {
 	uint8_t left_bit = (uint8_t) (vm->regs.accum & 0x8);
-	vm->regs.accum <<= 1;
+	vm->regs.accum = (uint8_t) ((vm->regs.accum << 1) & 0xF);
 	vm->regs.accum |= vm->regs.carry;
-	vm->regs.carry = left_bit;
+	vm->regs.carry = left_bit >> 3;
 }
 
 static inline void vm_exec_rar(vm_state *vm) {
 	uint8_t right_bit = (uint8_t) (vm->regs.accum & 1);
-	vm->regs.accum >>= 1;
+	vm->regs.accum = (uint8_t) ((vm->regs.accum << 1) & 0xF);
 	vm->regs.accum |= vm->regs.carry << 3;
 	vm->regs.carry = right_bit;
 }
@@ -412,16 +413,28 @@ static void vm_exec_insn(vm_state *vm, const insn_def *def, uint8_t op) {
 	}
 }
 
+static inline bool vm_is_terminated(vm_state *vm) {
+	return vm_status_ram_read_dp(vm, 0xF, 0) == 1;
+}
+
+static inline void vm_terminate(vm_state *vm) {
+	vm_status_ram_write_dp(vm, 0xF, 0, 1);
+}
+
 void vm_tick(vm_state *vm) {
 	uint8_t op = vm_read_pc(vm);
 	enum e_opcode e_op = instruction_lookup[op];
 	if(e_op == OP_ESIZE) {
 		fprintf(stderr, "vm error: unsupported opcode: %X\n", op);
-		vm->is_terminated = true;
+		vm_terminate(vm);
 		return;
 	}
 	const insn_def *def = &instruction_defs[e_op];
 	vm_exec_insn(vm, def, op);
+}
+
+void vm_run(vm_state *vm) {
+	while(!vm_is_terminated(vm)) vm_tick(vm);
 }
 
 void vm_destroy(vm_state *vm) {
