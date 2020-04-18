@@ -37,10 +37,23 @@ struct arg {
 	size_t line, column;
 };
 
+enum e_directive {
+	DIR_ORG,
+};
+
+typedef struct directive directive;
+struct directive {
+	list_head list;
+
+	enum e_directive dir;
+	uint64_t num;
+};
+
 typedef struct insn insn;
 struct insn {
 	list_head list;
 
+	directive *dirs;
 	label *lbls;
 	size_t op;
 	arg *args;
@@ -58,6 +71,10 @@ typedef struct {
 
 	insn *insns_head;
 	insn *insns_tail;
+
+	directive *dirs;
+
+	size_t kw_dir_org;
 } parser_state;
 
 parser_state *parser_start(lexer_state *lexer);

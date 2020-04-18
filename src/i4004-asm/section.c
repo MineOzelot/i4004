@@ -69,13 +69,13 @@ fragment *section_create_current(section *sect, size_t offset) {
 }
 
 bool section_verify(section *sect) {
-	fragment *frag = (fragment*) sect->frag->list.next;
-	fragment *last = 0;
+	fragment *frag = (fragment *) sect->frag->list.next;
+	fragment *last = sect->frag;
 	bool err = false;
 	size_t last_ending = sect->frag->offset + sect->frag->len;
 	while(frag) {
 		if(last_ending >= frag->offset) {
-			fprintf(stderr, "error: fragment with offset %zx overlaps fragment %zx\n",
+			fprintf(stderr, "error: fragment with offset 0x%zx overlaps fragment 0x%zx\n",
 			        frag->offset, last->offset
 			);
 			err = true;

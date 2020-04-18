@@ -416,6 +416,20 @@ static void codegen_handle_pseudo(codegen_state *state, const insn_pseudo_def *d
 }
 
 static void codegen_handle(codegen_state *state, insn *insn) {
+	directive *dir = insn->dirs;
+	while(dir) {
+		switch(dir->dir) {
+			case DIR_ORG:
+				if(dir->num == 0x00 && state->sect->frag->len == 0) {
+					state->sect->current = state->sect->frag;
+				} else {
+					section_create_current(state->sect, dir->num);
+				}
+				break;
+		}
+		dir = (directive *) dir->list.next;
+	}
+
 	const insn_def *def = codegen_find_instruction(state, insn->op);
 	if(def) {
 		codegen_handle_real_instruction(state, def, insn);

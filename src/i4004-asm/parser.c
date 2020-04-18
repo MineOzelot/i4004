@@ -10,6 +10,10 @@ parser_state *parser_start(lexer_state *lexer) {
 
 	state->insns_head = state->insns_tail = malloc(sizeof(insn));
 
+	state->dirs = 0;
+
+	state->kw_dir_org = symtbl_ident(lexer->symtbl, string_from("org", 3));
+
 	return state;
 }
 
@@ -154,12 +158,31 @@ static void parser_ident(parser_state *state) {
 		new_insn->column = op_column;
 		state->insns_tail->list.next = (list_head*) new_insn;
 		state->insns_tail = new_insn;
+		new_insn->dirs = state->dirs;
+		state->dirs = 0;
 	}
 }
 
 /* .code */
 static void parser_directive(parser_state *state) {
-	{
+	if(state->tok.ident == state->kw_dir_org) {
+		if(state->lookahead.type != tok_number) {
+			fprintf(stderr, "error: expected address after .org directive at line %zu, column %zu\n",
+			        state->lookahead.line, state->lookahead.column
+			);
+			state->iserr = true;
+			parser_recover(state);
+			return;
+		}
+		uint64_t addr = state->lookahead.num;
+		parser_next(state);
+
+		directive *dir = malloc(sizeof(directive));
+		dir->dir = DIR_ORG;
+		dir->num = addr;
+		dir->list.next = (list_head *) state->dirs;
+		state->dirs = dir;
+	} else {
 		fprintf(stderr, "error: unrecognized directive: %s\n",
 		        symtbl_get(state->lexer->symtbl, state->tok.ident)
 		);
@@ -220,6 +243,14 @@ insn *parser_get(parser_state *parser) {
 
 void parser_end(parser_state *state) {
 	lexer_end(state->lexer);
-	list_head_destroy(state->insns_head);
+	insn *in = state->insns_head;
+	while(in) {
+		insn *t = in;
+		in = (insn *) in->list.next;
+		list_head_destroy(t->dirs);
+		list_head_destroy(t->lbls);
+		list_head_destroy(t->args);
+		free(t);
+	}
 	free(state);
 }
