@@ -24,7 +24,7 @@ static int start_assembler(const char *in_file, const char *out_file) {
 
 	FILE *output = 0;
 
-	lexer = lexer_start(input);
+	lexer = lexer_start(input, in_file);
 	parser = parser_start(lexer);
 
 	parser_parse(parser);

@@ -1,5 +1,6 @@
 #include <memory.h>
 #include "linker.h"
+#include "codegen.h"
 
 linker_state *linker_create(symtbl *tbl) {
 	linker_state *state = malloc(sizeof(linker_state));
@@ -75,9 +76,7 @@ void linker_link(linker_state *state, symbol *symbols, reference *references) {
 	while(ref) {
 		symbol *sym = symbol_find(symbols, ref->ident);
 		if(!sym) {
-			fprintf(stderr, "error: undefined reference to `%s` at line %zu, column %zu\n",
-				symtbl_get(state->tbl, ref->ident), ref->line, ref->column
-			);
+			position_error(ref->pos, "undefined reference to `%s`\n", symtbl_get(state->tbl, ref->ident));
 			state->iserr = true;
 		} else {
 			/*if(sym->section != ref->section) {

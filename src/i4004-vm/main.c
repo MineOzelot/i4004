@@ -60,7 +60,6 @@ int main(int argc, char *argv[]) {
 
 	ret_val = 0;
 destroy:
-	if(data_section) free(data_section);
 	if(code_section) free(code_section);
 	if(image) fclose(image);
 	return ret_val;

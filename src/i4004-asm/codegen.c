@@ -93,22 +93,16 @@ static uint16_t codegen_resolve_arg_number(codegen_state *state, arg *arg, enum 
 			}
 			return (uint16_t) arg->num;
 		case at_reg:
-			fprintf(stderr, "error: expected an index register name, but given a number at line %zu, column %zu\n",
-				arg->line, arg->column
-			);
+			position_error(arg->pos, "expected an index register name, but given a number\n");
 			state->iserr = true;
 			return RESOLVE_ERROR;
 		case at_reg_pair:
-			fprintf(stderr, "error: expected a pair of index registers, but given a number at line %zu, column %zu\n",
-				arg->line, arg->column
-			);
+			position_error(arg->pos, "expected a pair of index registers, but given a number\n");
 			state->iserr = true;
 			return RESOLVE_ERROR;
 	}
 
-	fprintf(stderr, "error: number is too big, expected %s max at line %zu, column %zu\n",
-	        max_err, arg->line, arg->column
-	);
+	position_error(arg->pos, "number is too big, expected %s max\n", max_err);
 	state->iserr = true;
 	return RESOLVE_ERROR;
 }
@@ -117,18 +111,14 @@ static uint16_t codegen_resolve_arg_ident(codegen_state *state, arg *arg, enum i
 	if(wanted == at_reg) {
 		uint8_t code = codegen_test_reg(state, arg->ident);
 		if(code == 0xFF) {
-			fprintf(stderr, "error: unsupported register: `%s` at line %zu, column %zu\n",
-			        symtbl_get(state->tbl, arg->ident), arg->line, arg->column
-			);
+			position_error(arg->pos, "unsupported register: `%s`\n", symtbl_get(state->tbl, arg->ident));
 			state->iserr = true;
 		}
 		return code;
 	}
 
 	if(wanted == at_reg_pair) {
-		fprintf(stderr, "error: expected a pair, but given an identifier `%s` at line %zu, column %zu\n",
-		        symtbl_get(state->tbl, arg->ident), arg->line, arg->column
-		);
+		position_error(arg->pos, "expected a pair, but given an identifier `%s`\n", symtbl_get(state->tbl, arg->ident));
 		state->iserr = true;
 		return RESOLVE_ERROR;
 	}
@@ -140,9 +130,9 @@ static uint16_t codegen_resolve_arg_pair(codegen_state *state, arg *arg, enum in
 	if(wanted == at_reg_pair) {
 		uint8_t code = codegen_test_reg_pair(state, arg->pair.ident1, arg->pair.ident2);
 		if(code == 0xFF) {
-			fprintf(stderr, "error: unsupported register pair: `%s:%s` at line %zu, column %zu\n",
-			        symtbl_get(state->tbl, arg->pair.ident1), symtbl_get(state->tbl, arg->pair.ident2),
-			        arg->line, arg->column
+			position_error(arg->pos, "unsupported register pair: `%s:%s`\n",
+			               symtbl_get(state->tbl, arg->pair.ident1),
+			               symtbl_get(state->tbl, arg->pair.ident2)
 			);
 			state->iserr = true;
 		}
@@ -157,9 +147,7 @@ static uint16_t codegen_resolve_arg_pair(codegen_state *state, arg *arg, enum in
 		case at_triple: expected = "12 bits number"; break;
 		default: break;
 	}
-	fprintf(stderr, "error: expected %s, but given a register pair at line %zu, column %zu\n",
-	        expected, arg->line, arg->column
-	);
+	position_error(arg->pos, "expected %s, but given a register pair\n", expected);
 	state->iserr = true;
 	return RESOLVE_ERROR;
 }
@@ -170,9 +158,7 @@ static uint16_t codegen_resolve_arg(codegen_state *state, arg *arg, enum insn_ar
 		case arg_number: return codegen_resolve_arg_number(state, arg, wanted);
 		case arg_pair: return codegen_resolve_arg_pair(state, arg, wanted);
 	}
-	fprintf(stderr, "error: could not resolve argument at line %zu, column %zu\n",
-		arg->line, arg->column
-	);
+	position_error(arg->pos, "could not resolve argument\n");
 	state->iserr = true;
 	return RESOLVE_ERROR;
 }
@@ -180,15 +166,15 @@ static uint16_t codegen_resolve_arg(codegen_state *state, arg *arg, enum insn_ar
 static bool codegen_verify_args_count(codegen_state *state, insn *insn, size_t args_count, size_t wanted) {
 	if(args_count > wanted) {
 		state->iserr = true;
-		fprintf(stderr, "error: instruction `%s` has too many arguments (%zu) at line %zu, column %zu, expected: %zu\n",
-		        symtbl_get(state->tbl, insn->op), args_count, insn->line, insn->column, wanted
+		position_error(insn->pos, "instruction `%s` has too many arguments (%zu)\n",
+		               symtbl_get(state->tbl, insn->op), args_count
 		);
 		return false;
 	}
 	if(args_count < wanted) {
 		state->iserr = true;
-		fprintf(stderr, "error: instruction `%s` has too few arguments (%zu) at line %zu, column %zu, expected: %zu\n",
-		        symtbl_get(state->tbl, insn->op), args_count, insn->line, insn->column, wanted
+		position_error(insn->pos, "instruction `%s` has too few arguments (%zu)\n",
+		               symtbl_get(state->tbl, insn->op), args_count
 		);
 		return false;
 	}
@@ -225,19 +211,18 @@ static uint8_t codegen_transform_jcn(codegen_state *state, insn *insn) {
 	return 0xFF;
 }
 
-static void codegen_create_reference(codegen_state *state, size_t ident, size_t offset, enum e_reference_type type, size_t line, size_t col) {
+static void codegen_create_reference(codegen_state *state, size_t ident, size_t offset, enum e_reference_type type, position pos) {
 	reference *ref = malloc(sizeof(reference));
 	ref->list.next = (list_head *) state->references;
 	ref->ident = ident;
 	ref->offset = offset;
 	ref->type = type;
-	ref->line = line;
-	ref->column = col;
+	ref->pos = pos;
 
 	state->references = ref;
 }
 
-static void codegen_define_symbol(codegen_state *state, size_t ident, size_t offset, enum e_symbol_type type, size_t line, size_t col) {
+static void codegen_define_symbol(codegen_state *state, size_t ident, size_t offset, enum e_symbol_type type, position pos) {
 	if(symbol_find(state->symbols, ident)) {
 		fprintf(stderr, "error: double definition of symbol `%s`\n",
 		        symtbl_get(state->tbl, ident)
@@ -251,8 +236,7 @@ static void codegen_define_symbol(codegen_state *state, size_t ident, size_t off
 	sym->ident = ident;
 	sym->offset = offset;
 	sym->type = type;
-	sym->line = line;
-	sym->column = col;
+	sym->pos = pos;
 
 	state->symbols = sym;
 }
@@ -266,7 +250,7 @@ static size_t codegen_write_jcn(codegen_state *state, uint8_t cond, arg *arg) {
 	//TODO: handle jcn 254-255 exceptions
 
 	if(addr == RESOLVE_REFERENCE)
-		codegen_create_reference(state, arg->ident, ref_offset, REF_BYTE, arg->line, arg->column);
+		codegen_create_reference(state, arg->ident, ref_offset, REF_BYTE, arg->pos);
 
 	return label_offset;
 }
@@ -305,7 +289,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 				size_t ref_offset = fragment_append(sect->current, (uint8_t) data);
 
 				if(data == RESOLVE_REFERENCE)
-					codegen_create_reference(state, second->ident, ref_offset, REF_BYTE, second->line, second->column);
+					codegen_create_reference(state, second->ident, ref_offset, REF_BYTE, second->pos);
 			}
 			break;
 		case ARG_TYPE_1PAIR:
@@ -327,7 +311,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 				fragment_append(sect->current, (uint8_t) (addr & 0xFF));
 
 				if(addr == RESOLVE_REFERENCE)
-					codegen_create_reference(state, first->ident, label_offset, REF_LAST_HALF_2HALF, first->line, first->column);
+					codegen_create_reference(state, first->ident, label_offset, REF_LAST_HALF_2HALF, first->pos);
 			}
 			break;
 		case ARG_TYPE_1REG:
@@ -351,7 +335,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 				size_t ref_offset = fragment_append(sect->current, (uint8_t) addr);
 
 				if(addr == RESOLVE_REFERENCE)
-					codegen_create_reference(state, second->ident, ref_offset, REF_BYTE, second->line, second->column);
+					codegen_create_reference(state, second->ident, ref_offset, REF_BYTE, second->pos);
 			}
 			break;
 		case ARG_TYPE_1DATA:
@@ -367,7 +351,7 @@ static void codegen_handle_real_instruction(codegen_state *state, const insn_def
 
 	label *lbl = insn->lbls;
 	while(lbl) {
-		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, lbl->line, lbl->column);
+		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, lbl->pos);
 
 		lbl = (label*) lbl->list.next;
 	}
@@ -380,7 +364,7 @@ static void codegen_handle_jcn_alias(codegen_state *state, const jcn_alias_def *
 	}
 	label *lbl = insn->lbls;
 	while(lbl) {
-		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, lbl->line, lbl->column);
+		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, lbl->pos);
 
 		lbl = (label*) lbl->list.next;
 	}
@@ -402,14 +386,14 @@ static void codegen_handle_pseudo(codegen_state *state, const insn_pseudo_def *d
 			}
 
 			if(val == RESOLVE_REFERENCE)
-				codegen_create_reference(state, cur_arg->ident, ref_offset, REF_BYTE, cur_arg->line, cur_arg->column);
+				codegen_create_reference(state, cur_arg->ident, ref_offset, REF_BYTE, cur_arg->pos);
 
 			cur_arg = (arg*) cur_arg->list.next;
 		}
 	}
 	label *lbl = insn->lbls;
 	while(lbl) {
-		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, lbl->line, lbl->column);
+		codegen_define_symbol(state, lbl->ident, label_offset, SYM_COMMON, lbl->pos);
 
 		lbl = (label*) lbl->list.next;
 	}
@@ -448,9 +432,7 @@ static void codegen_handle(codegen_state *state, insn *insn) {
 		return;
 	}
 
-	fprintf(stderr, "error: unsupported instruction: `%s` at line %zu, column %zu\n",
-	        symtbl_get(state->tbl, insn->op), insn->line, insn->column
-	);
+	position_error(insn->pos, "unsupported instruction: `%s`\n", symtbl_get(state->tbl, insn->op));
 	state->iserr = true;
 }
 

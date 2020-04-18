@@ -7,6 +7,7 @@
 
 #include "string.h"
 #include "symtbl.h"
+#include "error.h"
 
 typedef struct {
 	FILE *input;
@@ -18,7 +19,7 @@ typedef struct {
 	bool iseof;
 	bool iserr;
 
-	size_t column, line;
+	position pos;
 
 	symtbl *symtbl;
 } lexer_state;
@@ -41,10 +42,10 @@ typedef struct {
 		size_t ident;
 		uint64_t num;
 	};
-	size_t column, line;
+	position pos;
 } token;
 
-lexer_state *lexer_start(FILE *input);
+lexer_state *lexer_start(FILE *input, const char *filename);
 token lexer_lex(lexer_state *state);
 void lexer_end(lexer_state *state);
 

@@ -2,6 +2,7 @@
 #include <ctype.h>
 
 #include "lexer.h"
+#include "error.h"
 
 #define LEXER_BUFSIZ BUFSIZ
 
@@ -11,8 +12,8 @@ inline static char lexer_getch(lexer_state *state) {
 
 static char lexer_nextch(lexer_state *state) {
 	if(lexer_getch(state) == '\n') {
-		state->line++;
-		state->column = 0;
+		state->pos.line++;
+		state->pos.column = 0;
 	}
 	if(state->idx >= state->cur_size) {
 		state->cur_size = fread(state->buffer, sizeof(char), LEXER_BUFSIZ, state->input);
@@ -24,20 +25,21 @@ static char lexer_nextch(lexer_state *state) {
 		state->idx = 0;
 	} else {
 		state->idx++;
-		state->column++;
+		state->pos.column++;
 	}
 	return lexer_getch(state);
 }
 
-lexer_state *lexer_start(FILE *input) {
+lexer_state *lexer_start(FILE *input, const char *filename) {
 	lexer_state *state = malloc(sizeof(lexer_state));
 
 	state->input = input;
 	state->buffer = calloc(LEXER_BUFSIZ, sizeof(char));
 	state->cur_size = 0;
 	state->idx = LEXER_BUFSIZ;
-	state->column = 0;
-	state->line = 1;
+	state->pos.column = 0;
+	state->pos.line = 1;
+	state->pos.filename = filename;
 
 	state->iseof = false;
 	state->iserr = false;
@@ -55,7 +57,7 @@ static bool is_ident(char ch) {
 }
 
 static token lexer_ident(lexer_state *state) {
-	size_t line = state->line, col = state->column;
+	position pos = state->pos;
     string *str = string_empty();
 	str = string_append(str, lexer_getch(state));
 
@@ -65,16 +67,14 @@ static token lexer_ident(lexer_state *state) {
 
 	size_t ident = symtbl_ident(state->symtbl, str);
 
-	return (token) {.type = tok_ident, .ident = ident, .line = line, .column = col};
+	return (token) {.type = tok_ident, .ident = ident, .pos = pos};
 }
 
 static token lexer_directive(lexer_state *state) {
 	if(!isalnum(lexer_nextch(state))) {
-		fprintf(stderr, "error: empty directive at line %zu, column %zu\n",
-		        state->line, state->column - 1
-		);
+		position_error(state->pos, "empty directive\n");
 		state->iserr = true;
-		return (token) {.type = tok_eof, .line = state->line, .column = state->column};
+		return (token) {.type = tok_eof, .pos = state->pos};
 	}
 	token ident_tok = lexer_ident(state);
 	ident_tok.type = tok_directive;
@@ -91,14 +91,14 @@ static bool is_digit(int base, char ch) {
 
 static token lexer_number(lexer_state *state) {
 	int base = 10;
-	size_t line = state->line, column = state->column;
+	position pos = state->pos;
 
 	if(lexer_getch(state) == '0') {
 		char after_zero = lexer_nextch(state);
 		if(after_zero == 'x') base = 16;
 		else if(after_zero == 'b') base = 2;
 		else if(is_digit(8, after_zero)) base = 8;
-		else return (token) {.type = tok_number, .num = 0, .line = line, .column = column};
+		else return (token) {.type = tok_number, .num = 0, .pos = pos};
 		if(base != 8) lexer_nextch(state);
 	}
 
@@ -108,11 +108,9 @@ static token lexer_number(lexer_state *state) {
 		else if(base == 16) base_str = "hexadecimal";
 		else if(base == 8) base_str = "octal";
 		else if(base == 2) base_str = "binary";
-		fprintf(stderr, "error: expected %s number at line %zu, column %zu\n",
-		        base_str, state->line, state->column
-		);
+		position_error(state->pos, "expected %s number\n", base_str);
 		state->iserr = true;
-		return (token) {.type = tok_eof, .line = state->line, .column = state->column};
+		return (token) {.type = tok_eof, .pos = state->pos};
 	}
 
 	string *str = string_empty();
@@ -127,44 +125,44 @@ static token lexer_number(lexer_state *state) {
 
 	string_destroy(str);
 
- 	return (token) {.type = tok_number, .num = number, .line = line, .column = column};
+ 	return (token) {.type = tok_number, .num = number, .pos = pos};
 }
 
 token lexer_lex(lexer_state *state) {
-	if(state->iseof) return (token) {.type = tok_eof, .line = state->line, .column = state->column};
+	if(state->iseof) return (token) {.type = tok_eof, .pos = state->pos};
 	if(lexer_getch(state) == '\n') {
-		size_t line = state->line, col = state->column;
+		position pos = state->pos;
 		lexer_nextch(state);
-		return (token) {.type = tok_newline, .line = line, .column = col};
+		return (token) {.type = tok_newline, .pos = pos};
 	}
 	while(isspace(lexer_getch(state))) lexer_nextch(state);
 
 	if(lexer_getch(state) == ';') {
 		while(lexer_nextch(state) != '\n' && !state->iseof);
-		size_t line = state->line, col = state->column;
+		position pos = state->pos;
 		lexer_nextch(state);
-		return (token) {.type = tok_newline, .line = line, .column = col};
+		return (token) {.type = tok_newline, .pos = pos};
 	}
 
 	if(isalpha(lexer_getch(state))) return lexer_ident(state);
 	if(isdigit(lexer_getch(state))) return lexer_number(state);
 	if(lexer_getch(state) == ',') {
+		position pos = state->pos;
 		lexer_nextch(state);
-		return (token) {.type = tok_comma, .line = state->line, .column = state->column - 1};
+		return (token) {.type = tok_comma, .pos = pos};
 	}
 	if(lexer_getch(state) == ':') {
+		position pos = state->pos;
 		lexer_nextch(state);
-		return (token) {.type = tok_semi, .line = state->line, .column = state->column - 1};
+		return (token) {.type = tok_semi, .pos = pos};
 	}
 	if(lexer_getch(state) == '.') return lexer_directive(state);
 
-	if(lexer_getch(state) == '\0') return (token) {.type = tok_eof, .line = state->line, .column = state->column};
+	if(lexer_getch(state) == '\0') return (token) {.type = tok_eof, .pos = state->pos};
 
 	state->iserr = true;
-	fprintf(stderr, "error: unrecognized character: `%c` (line %zu, column %zu)\n",
-	        lexer_getch(state), state->line, state->column
-	);
-	return (token) {.type = tok_eof, .line = state->line, .column = state->column};
+	position_error(state->pos, "unrecognized character: `%c`\n", lexer_getch(state));
+	return (token) {.type = tok_eof, .pos = state->pos};
 }
 
 void lexer_end(lexer_state *state) {

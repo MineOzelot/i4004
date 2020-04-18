@@ -4,6 +4,7 @@
 #include "parser.h"
 #include "list_head.h"
 #include "section.h"
+#include "error.h"
 
 enum e_symbol_type {
 	SYM_COMMON
@@ -17,7 +18,7 @@ typedef struct {
 	size_t offset;
 	enum e_symbol_type type;
 
-	size_t line, column;
+	position pos;
 } symbol;
 
 symbol *symbol_find(symbol *symbols, size_t ident);
@@ -38,7 +39,7 @@ typedef struct {
 	size_t offset;
 	enum e_reference_type type;
 
-	size_t line, column;
+	position pos;
 } reference;
 
 enum e_resolve {

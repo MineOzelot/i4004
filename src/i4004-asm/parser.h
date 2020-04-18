@@ -12,7 +12,7 @@ struct label {
 
 	size_t ident;
 
-	size_t line, column;
+	position pos;
 };
 
 enum arg_type {
@@ -34,7 +34,7 @@ struct arg {
 		} pair;
 	};
 
-	size_t line, column;
+	position pos;
 };
 
 enum e_directive {
@@ -58,7 +58,7 @@ struct insn {
 	size_t op;
 	arg *args;
 
-	size_t line, column;
+	position pos;
 };
 
 typedef struct {

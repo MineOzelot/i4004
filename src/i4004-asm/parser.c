@@ -43,16 +43,13 @@ static label *parser_label_list(parser_state *state) {
 		label *lbl = malloc(sizeof(label));
 		lbl->ident = state->tok.ident;
 		lbl->list.next = (list_head *) lbls;
-		lbl->line = state->tok.line;
-		lbl->column = state->tok.column;
+		lbl->pos = state->tok.pos;
 		lbls = lbl;
 
 		parser_next_twice(state);
 		while(state->tok.type == tok_newline) { parser_next(state); }
 		if(state->tok.type == tok_eof) {
-			fprintf(stderr, "error: label references nothing at line %zu, column %zu\n",
-			        state->tok.line, state->tok.column
-			);
+			position_error(state->tok.pos, "label references nothing\n");
 			state->iserr = true;
 			list_head_destroy(lbls);
 			return 0;
@@ -64,8 +61,7 @@ static label *parser_label_list(parser_state *state) {
 /* 0 | a | a:b */
 static arg *parser_arg(parser_state *state) {
 	arg *new_arg = malloc(sizeof(arg));
-	new_arg->line = state->tok.line;
-	new_arg->column = state->tok.column;
+	new_arg->pos = state->tok.pos;
 	switch(state->tok.type) {
 		case tok_number:
 			new_arg->type = arg_number;
@@ -75,9 +71,7 @@ static arg *parser_arg(parser_state *state) {
 			if(state->lookahead.type == tok_semi) {
 				size_t ident1 = state->tok.ident;
 				if(parser_next_twice(state) != tok_ident) {
-					fprintf(stderr, "error: expected register name at line %zu, column %zu\n",
-						state->tok.line, state->tok.column
-					);
+					position_error(state->tok.pos, "expected register name\n");
 					state->iserr = true;
 					free(new_arg);
 					return 0;
@@ -108,9 +102,7 @@ static arg *parser_arglist(parser_state *state) {
 		parser_next(state);
 		next_arg = parser_arg(state);
 		if(!next_arg) {
-			fprintf(stderr, "error: expected argument at line %zu, column %zu\n",
-				state->tok.line, state->tok.column
-			);
+			position_error(state->tok.pos, "expected argument");
 			list_head_destroy(first_arg);
 			parser_recover(state);
 			return 0;
@@ -125,23 +117,18 @@ static arg *parser_arglist(parser_state *state) {
 static void parser_ident(parser_state *state) {
 	label *lbls = parser_label_list(state);
 	if(state->tok.type != tok_ident) {
-		fprintf(stderr, "error: expected identifier at line %zu, column %zu\n",
-			state->tok.line, state->tok.column
-		);
+		position_error(state->tok.pos, "expected identifier\n");
 		list_head_destroy(lbls);
 		parser_recover(state);
 		return;
 	}
 	size_t op = state->tok.ident;
-	size_t op_line = state->tok.line;
-	size_t op_column = state->tok.column;
+	position op_pos = state->tok.pos;
 	parser_next(state);
 	arg* arglist = 0;
 	if(state->tok.type != tok_newline) arglist = parser_arglist(state);
 	if(state->tok.type != tok_newline && state->tok.type != tok_eof) {
-		fprintf(stderr, "error: expected new line at line %zu, column %zu\n",
-			state->tok.line, state->tok.column
-		);
+		position_error(state->tok.pos, "expected new line\n");
 		list_head_destroy(lbls);
 		list_head_destroy(arglist);
 		parser_recover(state);
@@ -154,8 +141,7 @@ static void parser_ident(parser_state *state) {
 		new_insn->lbls = lbls;
 		new_insn->op = op;
 		new_insn->args = arglist;
-		new_insn->line = op_line;
-		new_insn->column = op_column;
+		new_insn->pos = op_pos;
 		state->insns_tail->list.next = (list_head*) new_insn;
 		state->insns_tail = new_insn;
 		new_insn->dirs = state->dirs;
@@ -167,9 +153,7 @@ static void parser_ident(parser_state *state) {
 static void parser_directive(parser_state *state) {
 	if(state->tok.ident == state->kw_dir_org) {
 		if(state->lookahead.type != tok_number) {
-			fprintf(stderr, "error: expected address after .org directive at line %zu, column %zu\n",
-			        state->lookahead.line, state->lookahead.column
-			);
+			position_error(state->lookahead.pos, "expected address after .org directive\n");
 			state->iserr = true;
 			parser_recover(state);
 			return;
@@ -183,8 +167,8 @@ static void parser_directive(parser_state *state) {
 		dir->list.next = (list_head *) state->dirs;
 		state->dirs = dir;
 	} else {
-		fprintf(stderr, "error: unrecognized directive: %s\n",
-		        symtbl_get(state->lexer->symtbl, state->tok.ident)
+		position_error(state->tok.pos, "unrecognized directive: %s\n",
+		               symtbl_get(state->lexer->symtbl, state->tok.ident)
 		);
 		parser_recover(state);
 		return;
@@ -228,9 +212,7 @@ void parser_parse(parser_state *state) {
 				parser_next(state);
 				break;
 			default:
-				fprintf(stderr, "error: unextected token: %s, at line %zu, column %zu\n",
-				        token_to_string(type), state->tok.line, state->tok.column
-				);
+				position_error(state->tok.pos, "unextected token: %s\n", token_to_string(type));
 				parser_recover(state);
 				break;
 		}
