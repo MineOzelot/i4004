@@ -5,6 +5,7 @@
 
 #include "lexer.h"
 #include "list_head.h"
+#include "preproc.h"
 
 typedef struct label label;
 struct label {
@@ -62,7 +63,7 @@ struct insn {
 };
 
 typedef struct {
-	lexer_state *lexer;
+	preproc_state *lexer;
 
 	token tok, lookahead;
 
@@ -77,7 +78,7 @@ typedef struct {
 	size_t kw_dir_org;
 } parser_state;
 
-parser_state *parser_start(lexer_state *lexer);
+parser_state *parser_start(preproc_state *lexer);
 
 void parser_parse(parser_state *parser);
 

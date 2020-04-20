@@ -30,7 +30,7 @@ static char lexer_nextch(lexer_state *state) {
 	return lexer_getch(state);
 }
 
-lexer_state *lexer_start(FILE *input, const char *filename) {
+lexer_state *lexer_start(FILE *input, const char *filename, symtbl *tbl) {
 	lexer_state *state = malloc(sizeof(lexer_state));
 
 	state->input = input;
@@ -44,7 +44,7 @@ lexer_state *lexer_start(FILE *input, const char *filename) {
 	state->iseof = false;
 	state->iserr = false;
 
-	state->symtbl = symtbl_create();
+	state->symtbl = tbl;
 
 	lexer_nextch(state);
 
@@ -67,17 +67,17 @@ static token lexer_ident(lexer_state *state) {
 
 	size_t ident = symtbl_ident(state->symtbl, str);
 
-	return (token) {.type = tok_ident, .ident = ident, .pos = pos};
+	return (token) {.type = TOK_IDENT, .ident = ident, .pos = pos};
 }
 
 static token lexer_directive(lexer_state *state) {
 	if(!isalnum(lexer_nextch(state))) {
 		position_error(state->pos, "empty directive\n");
 		state->iserr = true;
-		return (token) {.type = tok_eof, .pos = state->pos};
+		return (token) {.type = TOK_EOF, .pos = state->pos};
 	}
 	token ident_tok = lexer_ident(state);
-	ident_tok.type = tok_directive;
+	ident_tok.type = TOK_DIRECTIVE;
 	return ident_tok;
 }
 
@@ -98,7 +98,7 @@ static token lexer_number(lexer_state *state) {
 		if(after_zero == 'x') base = 16;
 		else if(after_zero == 'b') base = 2;
 		else if(is_digit(8, after_zero)) base = 8;
-		else return (token) {.type = tok_number, .num = 0, .pos = pos};
+		else return (token) {.type = TOK_NUMBER, .num = 0, .pos = pos};
 		if(base != 8) lexer_nextch(state);
 	}
 
@@ -110,7 +110,7 @@ static token lexer_number(lexer_state *state) {
 		else if(base == 2) base_str = "binary";
 		position_error(state->pos, "expected %s number\n", base_str);
 		state->iserr = true;
-		return (token) {.type = tok_eof, .pos = state->pos};
+		return (token) {.type = TOK_EOF, .pos = state->pos};
 	}
 
 	string *str = string_empty();
@@ -125,15 +125,19 @@ static token lexer_number(lexer_state *state) {
 
 	string_destroy(str);
 
- 	return (token) {.type = tok_number, .num = number, .pos = pos};
+ 	return (token) {.type = TOK_NUMBER, .num = number, .pos = pos};
+}
+
+static bool is_punctuation(char ch) {
+	return (ch == ',' || ch == ':' || ch == '%');
 }
 
 token lexer_lex(lexer_state *state) {
-	if(state->iseof) return (token) {.type = tok_eof, .pos = state->pos};
+	if(state->iseof) return (token) {.type = TOK_EOF, .pos = state->pos};
 	if(lexer_getch(state) == '\n') {
 		position pos = state->pos;
 		lexer_nextch(state);
-		return (token) {.type = tok_newline, .pos = pos};
+		return (token) {.type = TOK_NEWLINE, .pos = pos};
 	}
 	while(isspace(lexer_getch(state))) lexer_nextch(state);
 
@@ -141,33 +145,28 @@ token lexer_lex(lexer_state *state) {
 		while(lexer_nextch(state) != '\n' && !state->iseof);
 		position pos = state->pos;
 		lexer_nextch(state);
-		return (token) {.type = tok_newline, .pos = pos};
+		return (token) {.type = TOK_NEWLINE, .pos = pos};
 	}
 
 	if(isalpha(lexer_getch(state))) return lexer_ident(state);
 	if(isdigit(lexer_getch(state))) return lexer_number(state);
-	if(lexer_getch(state) == ',') {
+	if(is_punctuation(lexer_getch(state))) {
 		position pos = state->pos;
+		char ch = lexer_getch(state);
 		lexer_nextch(state);
-		return (token) {.type = tok_comma, .pos = pos};
-	}
-	if(lexer_getch(state) == ':') {
-		position pos = state->pos;
-		lexer_nextch(state);
-		return (token) {.type = tok_semi, .pos = pos};
+		return (token) {.type = (enum token_type) ch, .pos = pos};
 	}
 	if(lexer_getch(state) == '.') return lexer_directive(state);
 
-	if(lexer_getch(state) == '\0') return (token) {.type = tok_eof, .pos = state->pos};
+	if(lexer_getch(state) == '\0') return (token) {.type = TOK_EOF, .pos = state->pos};
 
 	state->iserr = true;
 	position_error(state->pos, "unrecognized character: `%c`\n", lexer_getch(state));
-	return (token) {.type = tok_eof, .pos = state->pos};
+	return (token) {.type = TOK_EOF, .pos = state->pos};
 }
 
 void lexer_end(lexer_state *state) {
 	fclose(state->input);
 	free(state->buffer);
-	symtbl_destroy(state->symtbl);
 	free(state);
 }

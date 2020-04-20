@@ -3,5 +3,5 @@ add_executable(i4004-asm main.c
         string.c symtbl.c
         codegen.c section.c
         list_head.c linker.c
-        error.c
+        error.c preproc.c
 )

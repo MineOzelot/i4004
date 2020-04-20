@@ -1,3 +1,5 @@
+%define a
+
 .org 0x1
     jun entry
 a:  db 0x12, 0x34, 0x56; comment

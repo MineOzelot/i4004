@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 typedef struct {
 	size_t line;

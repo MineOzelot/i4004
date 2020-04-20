@@ -25,15 +25,13 @@ typedef struct {
 } lexer_state;
 
 enum token_type {
-	tok_eof,
+	TOK_EOF = -1,
 
-	tok_ident,
-	tok_number,
-	tok_directive,
+	TOK_IDENT = -2,
+	TOK_NUMBER = -3,
+	TOK_DIRECTIVE = -4,
 
-	tok_semi,
-	tok_comma,
-	tok_newline
+	TOK_NEWLINE = -5
 };
 
 typedef struct {
@@ -45,7 +43,7 @@ typedef struct {
 	position pos;
 } token;
 
-lexer_state *lexer_start(FILE *input, const char *filename);
+lexer_state *lexer_start(FILE *input, const char *filename, symtbl *tbl);
 token lexer_lex(lexer_state *state);
 void lexer_end(lexer_state *state);
 

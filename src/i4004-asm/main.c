@@ -7,6 +7,7 @@
 #include "parser.h"
 #include "codegen.h"
 #include "linker.h"
+#include "preproc.h"
 
 static int start_assembler(const char *in_file, const char *out_file) {
 	FILE *input = fopen(in_file, "r");
@@ -17,24 +18,26 @@ static int start_assembler(const char *in_file, const char *out_file) {
 
 	int ret_val = 1;
 
-	lexer_state *lexer = 0;
+	preproc_state *preproc = 0;
 	parser_state *parser = 0;
 	codegen_state *codegen = 0;
 	linker_state *linker = 0;
 
 	FILE *output = 0;
 
-	lexer = lexer_start(input, in_file);
-	parser = parser_start(lexer);
+	symtbl *tbl = symtbl_create();
+
+	preproc = preproc_create(in_file, input, tbl);
+	parser = parser_start(preproc);
 
 	parser_parse(parser);
-	if(lexer->iserr || parser->iserr) goto destroy;
+	if(preproc->iserr || parser->iserr) goto destroy;
 
 	insn *cur_insn = parser_get(parser);
-	codegen = codegen_from_insnlist(cur_insn, lexer->symtbl);
+	codegen = codegen_from_insnlist(cur_insn, preproc->tbl);
 	if(codegen->iserr) goto destroy;
 
-	linker = linker_create(lexer->symtbl);
+	linker = linker_create(preproc->tbl);
 
 	linker_put_section(linker, codegen->sect);
 	if(linker->iserr) goto destroy;
@@ -56,6 +59,8 @@ destroy:
 	if(linker) linker_destroy(linker);
 	if(codegen) codegen_destroy(codegen);
 	if(parser) parser_end(parser);
+	if(preproc) preproc_destroy(preproc);
+	if(tbl) symtbl_destroy(tbl);
 	return ret_val;
 }
 
