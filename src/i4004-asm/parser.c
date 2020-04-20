@@ -140,10 +140,11 @@ static void parser_ident(parser_state *state) {
 	if(!state->iserr) {
 		insn* new_insn = malloc(sizeof(insn));
 		new_insn->lbls = lbls;
+		new_insn->list.next = 0;
 		new_insn->op = op;
 		new_insn->args = arglist;
 		new_insn->pos = op_pos;
-		state->insns_tail->list.next = (list_head*) new_insn;
+		state->insns_tail->list.next = (list_head *) new_insn;
 		state->insns_tail = new_insn;
 		new_insn->dirs = state->dirs;
 		state->dirs = 0;

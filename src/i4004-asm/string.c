@@ -30,6 +30,19 @@ string *string_append(string *str, char ch) {
 	return str;
 }
 
+string *string_append_str(string *str, const char *app, size_t len) {
+	if(str->len + len > str->size) {
+		size_t new_size = (size_t) (str->size + len);
+		str = realloc(str, sizeof(string) + new_size + 1);
+		str->size = new_size;
+	}
+	for(size_t i = 0; i < len; i++) {
+		str->data[str->len + i] = app[i];
+	}
+	str->len += len;
+	return str;
+}
+
 bool string_equal(string *str1, string *str2) {
 	if(str1->len != str2->len) return false;
 	for(size_t i = 0; i < str1->len; i++) {

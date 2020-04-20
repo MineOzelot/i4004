@@ -1,4 +1,4 @@
-%define a
+%include "vm.inc"
 
 .org 0x1
     jun entry
@@ -70,3 +70,5 @@ one_operand:
     daa
     kbp
     dcl
+
+    vm_terminate

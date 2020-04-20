@@ -147,6 +147,22 @@ token lexer_lex(lexer_state *state) {
 		lexer_nextch(state);
 		return (token) {.type = TOK_NEWLINE, .pos = pos};
 	}
+	if(lexer_getch(state) == '"') {
+		string *str = string_empty();
+		position pos = state->pos;
+		while(lexer_nextch(state) != '"') {
+			if(state->iseof) {
+				position_error(state->pos, "missing terminating `\"` character\n");
+				state->iserr = true;
+				string_destroy(str);
+				return (token){.type = TOK_EOF, .pos = state->pos};
+			}
+			string_append(str, lexer_getch(state));
+		}
+		lexer_nextch(state);
+		size_t sym = symtbl_ident(state->symtbl, str);
+		return (token){.type = TOK_STRING, .pos = pos, .ident = sym};
+	}
 
 	if(isalpha(lexer_getch(state))) return lexer_ident(state);
 	if(isdigit(lexer_getch(state))) return lexer_number(state);

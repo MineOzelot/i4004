@@ -25,13 +25,14 @@ typedef struct {
 } lexer_state;
 
 enum token_type {
-	TOK_EOF = -1,
+	TOK_EOF = 256,
 
-	TOK_IDENT = -2,
-	TOK_NUMBER = -3,
-	TOK_DIRECTIVE = -4,
+	TOK_IDENT,
+	TOK_NUMBER,
+	TOK_DIRECTIVE,
+	TOK_STRING,
 
-	TOK_NEWLINE = -5
+	TOK_NEWLINE
 };
 
 typedef struct {

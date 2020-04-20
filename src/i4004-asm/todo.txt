@@ -1,4 +1,3 @@
 .section and .page directives
-macros
 negative numbers
 expressions

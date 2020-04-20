@@ -1,3 +1,5 @@
+%include "vm.inc"
+
         fim r0:r1, 0xFF
         jms and
         ld  r0
@@ -18,10 +20,7 @@
         ld r0
         wrr
 
-        fim r8:r9, 0xF
-        src r8:r9
-        ldm 1
-        wr0
+        vm_terminate
 
 and:    fim r2:r3, 11
 l1:     ldm 0

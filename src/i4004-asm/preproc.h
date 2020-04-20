@@ -21,6 +21,12 @@ struct token_list {
 };
 
 typedef struct {
+	list_head list;
+	size_t name;
+	token_list *tokens;
+} macro;
+
+typedef struct {
 	symtbl *tbl;
 	input_file *in_stack;
 
@@ -28,8 +34,14 @@ typedef struct {
 	token_list *tok_list_tail;
 
 	bool is_newline;
-
 	bool iserr;
+
+	bool is_macro_recording;
+
+	macro *macros;
+
+	size_t id_dir_macro, id_dir_endmacro;
+	size_t id_dir_include;
 } preproc_state;
 
 preproc_state *preproc_create(const char *filename, FILE *in_file, symtbl *tbl);
