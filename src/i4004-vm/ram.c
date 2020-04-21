@@ -48,9 +48,9 @@ void ram_write(ram_chip *ram, uint8_t reg, uint8_t half, uint64_t data, int size
 
 uint64_t ram_read(ram_chip *ram, uint8_t reg, uint8_t half, int size) {
 	uint64_t data = 0;
-	for(int i = size - 1; i > 0; i--) {
-		data |= ram_read_half(ram, reg, (uint8_t) (half + i));
+	for(int i = size - 1; i >= 0; i--) {
 		data <<= 4;
+		data |= ram_read_half(ram, reg, (uint8_t) (half + i));
 	}
 	return data;
 }

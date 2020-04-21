@@ -62,6 +62,35 @@ string *string_clone(string *str) {
 	return clone;
 }
 
+string *string_unesaped(string *str) {
+	string *ns = calloc(1, sizeof(string) + str->len + 1);
+
+	for(size_t i = 0; i < str->len; i++) {
+		if(str->data[i] == '\\') {
+			switch(str->data[++i]) {
+				case 'a': string_append(ns, '\a'); continue;
+				case 'b': string_append(ns, '\b'); continue;
+				case 'f': string_append(ns, '\f'); continue;
+				case 'n': string_append(ns, '\n'); continue;
+				case 'r': string_append(ns, '\r'); continue;
+				case 't': string_append(ns, '\t'); continue;
+				case 'v': string_append(ns, '\v'); continue;
+				case '\\': string_append(ns, '\\'); continue;
+				case '\'': string_append(ns, '\''); continue;
+				case '"': string_append(ns, '"'); continue;
+				case '?': string_append(ns, '?'); continue;
+				default:
+					string_append(ns, '\\');
+					string_append(ns, str->data[i]);
+					continue;
+			}
+		}
+		string_append(ns, str->data[i]);
+	}
+
+	return ns;
+}
+
 void string_destroy(string *str) {
 	free(str);
 }

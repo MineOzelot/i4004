@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <stdio.h>
 #include "vmi.h"
 
 static void vmi_sleep(vm_state *vm) {
@@ -7,7 +8,13 @@ static void vmi_sleep(vm_state *vm) {
 }
 
 static void state_ram_write_status(ram_chip *ram, uint8_t reg, uint8_t idx, uint8_t data) {
-	if(reg == 3) {
+	if(reg == 0) {
+		if(idx == 0) {
+			printf("%c", ram_read_byte(ram, 0, 0));
+		} else if(idx == 1) {
+
+		}
+	} else if(reg == 3) {
 		if(idx == 0) {
 			if(data == VM_STATE_SLEEPING) {
 				vmi_sleep(ram->vm);

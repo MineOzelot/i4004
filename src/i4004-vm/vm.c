@@ -324,7 +324,7 @@ static void vm_exec_insn(vm_state *vm, const insn_def *def, uint8_t op) {
 			break;
 		case ARG_TYPE_1REG_2ADDR:
 			byte1 = (uint8_t) (op & 0x0F);
-			word = vm_read_pc(vm);
+			byte2 = vm_read_pc(vm);
 			break;
 		case ARG_TYPE_1REG:
 		case ARG_TYPE_1DATA:

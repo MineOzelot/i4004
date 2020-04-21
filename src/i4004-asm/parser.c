@@ -58,8 +58,8 @@ static label *parser_label_list(parser_state *state) {
 	return lbls;
 }
 
-/* 0 | a | a:b */
-static arg *parser_arg(parser_state *state) {
+/* 0 | a | a:b | "abc" */
+static arg *parser_arg(parser_state *state, arg *prev) {
 	arg *new_arg = malloc(sizeof(arg));
 	new_arg->pos = state->tok.pos;
 	new_arg->list.next = 0;
@@ -85,30 +85,48 @@ static arg *parser_arg(parser_state *state) {
 				new_arg->ident = state->tok.ident;
 			}
 			break;
+		case TOK_STRING: {
+			string *str = string_unesaped(state->lexer->tbl->idents[state->tok.ident]);
+			arg *cur = new_arg;
+			for(size_t i = 0; i < str->len; i++) {
+				arg *ch = malloc(sizeof(arg));
+				ch->pos = state->tok.pos;
+				ch->list.next = 0;
+				ch->type = arg_number;
+				ch->num = (uint64_t) str->data[i];
+				cur->list.next = (list_head *) ch;
+				cur = ch;
+			}
+			arg *na = new_arg;
+			new_arg = (arg *) new_arg->list.next;
+			free(na);
+			string_destroy(str);
+			break;
+		}
 		default:
 			free(new_arg);
 			return 0;
 	}
 	parser_next(state);
+	if(prev) prev->list.next = (list_head *) new_arg;
 	return new_arg;
 }
 
 /* arg | arglist ',' arg */
 static arg *parser_arglist(parser_state *state) {
-	arg *first_arg = parser_arg(state);
+	arg *first_arg = parser_arg(state, 0);
 
 	arg *cur_arg = first_arg;
 	arg *next_arg;
 	while(state->tok.type == ',') {
 		parser_next(state);
-		next_arg = parser_arg(state);
+		next_arg = parser_arg(state, cur_arg);
 		if(!next_arg) {
 			position_error(state->tok.pos, "expected argument");
 			list_head_destroy(first_arg);
 			parser_recover(state);
 			return 0;
 		}
-		cur_arg->list.next = (list_head *) next_arg;
 		cur_arg = next_arg;
 	}
 	return first_arg;

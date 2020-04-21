@@ -21,6 +21,8 @@ bool string_equal(string *str1, string *str2);
 
 string *string_clone(string *str);
 
+string *string_unesaped(string *str);
+
 void string_destroy(string *str);
 
 #endif //I4004_STRING_H
