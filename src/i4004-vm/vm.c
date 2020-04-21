@@ -7,16 +7,21 @@ vm_state *vm_create() {
 	vm_state *vm = malloc(sizeof(vm_state));
 
 	memset(vm, 0, sizeof(vm_state));
+	vm->ram[0][3] = ram_create(vm);
 
 	return vm;
 }
 
 void vm_put_section(vm_state *vm, uint8_t *section) {
-	vm->sect = section;
+	for(int i = 0; i < 16; i++) {
+		vm->rom[i] = rom_create(vm, &section[i << 8]);
+	}
 }
 
 static inline uint8_t vm_read_pc(vm_state *vm) {
-	return vm->sect[vm->regs.pc++];
+	uint8_t byte = rom_read_byte(vm->rom[vm->regs.pc >> 8], (uint8_t) (vm->regs.pc & 0xFF));
+	vm->regs.pc++;
+	return byte;
 }
 
 static inline void vm_jump_byte(vm_state *vm, uint8_t addr) {
@@ -41,52 +46,14 @@ static void vm_pop_pc(vm_state *vm) {
 	vm->regs.stack[2] = 0;
 }
 
-static uint8_t *vm_ram_get_bank(vm_state *vm) {
-	if(!vm->ram[vm->memory_bank]) vm->ram[vm->memory_bank] = calloc(VM_RAM_BANK_SIZE, 1);
-	return vm->ram[vm->memory_bank];
+static ram_chip *vm_ram_get_chip(vm_state *vm) {
+	ram_chip **chip = &vm->ram[vm->memory_bank][vm->dp.chip_ptr];
+	if(!*chip) *chip = ram_create(vm);
+	return *chip;
 }
 
-static void vm_ram_write_dp(vm_state *vm, uint8_t dp, uint8_t half) {
-	uint8_t *bank = vm_ram_get_bank(vm);
-	bank[dp] = (uint8_t) (half & 0xF);
-}
-
-static inline void vm_ram_write(vm_state *vm, uint8_t half) {
-	vm_ram_write_dp(vm, vm->data_ptr, half);
-}
-
-static uint8_t vm_ram_read_dp(vm_state *vm, uint8_t dp) {
-	uint8_t *bank = vm_ram_get_bank(vm);
-	return (uint8_t) (bank[dp] & 0xF);
-}
-
-static inline uint8_t vm_ram_read(vm_state *vm) {
-	return vm_ram_read_dp(vm, vm->data_ptr);
-}
-
-static uint8_t *vm_status_ram_get_bank(vm_state *vm) {
-	if(!vm->status_ram[vm->memory_bank]) vm->status_ram[vm->memory_bank] = calloc(VM_STATUS_RAM_SIZE, 1);
-	return vm->status_ram[vm->memory_bank];
-}
-
-static void vm_status_ram_write_dp(vm_state *vm, uint8_t dp, uint8_t inx, uint8_t half) {
-	uint8_t *bank = vm_status_ram_get_bank(vm);
-	size_t addr = (dp << 2) | inx;
-	bank[addr] = (uint8_t) (half & 0xF);
-}
-
-static inline void vm_status_ram_write(vm_state *vm, uint8_t inx, uint8_t half) {
-	vm_status_ram_write_dp(vm, vm->data_ptr, inx, half);
-}
-
-static uint8_t vm_status_ram_read_dp(vm_state *vm, uint8_t dp, uint8_t inx) {
-	uint8_t *bank = vm_status_ram_get_bank(vm);
-	size_t addr = (dp << 2) | inx;
-	return bank[addr];
-}
-
-static inline uint8_t vm_status_ram_read(vm_state *vm, uint8_t inx) {
-	return vm_status_ram_read_dp(vm, vm->data_ptr, inx);
+static rom_chip *vm_rom_get_chip(vm_state *vm) {
+	return vm->rom[(vm->dp.chip_ptr << 2) | vm->dp.reg_ptr];
 }
 
 static inline void vm_exec_jcn(vm_state *vm, uint8_t cond, uint8_t addr) {
@@ -107,19 +74,21 @@ static inline void vm_exec_fim(vm_state *vm, uint8_t pair, uint8_t data) {
 }
 
 static inline void vm_exec_src(vm_state *vm, uint8_t pair) {
-	vm->data_ptr = (vm->regs.in_regs[pair] << 4) | vm->regs.in_regs[pair + 1];
+	uint8_t byte = (vm->regs.in_regs[pair] << 4) | vm->regs.in_regs[pair + 1];
+	vm->dp.chip_ptr = (uint8_t) ((byte >> 6) & 0x3);
+	vm->dp.reg_ptr  = (uint8_t) ((byte >> 4) & 0x3);
+	vm->dp.half_ptr = (uint8_t) (byte & 0xF);
 }
 
 static inline void vm_exec_fin(vm_state *vm, uint8_t pair) {
 	uint8_t r0_r1 = (vm->regs.in_regs[0] << 4) | vm->regs.in_regs[1];
-	uint16_t addr = (uint16_t) (vm->regs.pc & 0xF00) | r0_r1;
-	uint8_t data = vm->sect[addr];
+	uint8_t data = rom_read_byte(vm->rom[vm->regs.pc >> 8], r0_r1);
 	vm->regs.in_regs[pair] = (uint8_t) ((data >> 4) & 0xF);
 	vm->regs.in_regs[pair + 1] = (uint8_t) (data & 0xF);
 }
 
 static inline void vm_exec_jin(vm_state *vm, uint8_t pair) {
-	uint8_t r0_r1 = (vm->regs.in_regs[0] << 4) | vm->regs.in_regs[1];
+	uint8_t r0_r1 = (vm->regs.in_regs[pair] << 4) | vm->regs.in_regs[pair + 1];
 	vm_jump_byte(vm, r0_r1);
 }
 
@@ -178,16 +147,15 @@ static inline void vm_exec_ldm(vm_state *vm, uint8_t data) {
 }
 
 static inline void vm_exec_wrm(vm_state *vm) {
-	vm_ram_write(vm, vm->regs.accum);
+	ram_write_half(vm_ram_get_chip(vm), vm->dp.reg_ptr, vm->dp.half_ptr, vm->regs.accum);
 }
 
 static inline void vm_exec_wmp(vm_state *vm) {
-	//TODO: ram extension
+	ram_write_out(vm_ram_get_chip(vm), vm->regs.accum);
 }
 
 static inline void vm_exec_wrr(vm_state *vm) {
-	//TODO: IO
-	printf("wrr: %X\n", vm->regs.accum);
+	rom_write_io(vm_rom_get_chip(vm), vm->regs.accum);
 }
 
 static inline void vm_exec_wpm(vm_state *vm) {
@@ -195,23 +163,23 @@ static inline void vm_exec_wpm(vm_state *vm) {
 }
 
 static inline void vm_exec_wr0(vm_state *vm) {
-	vm_status_ram_write(vm, 0, vm->regs.accum);
+	ram_write_status(vm_ram_get_chip(vm), vm->dp.reg_ptr, 0, vm->regs.accum);
 }
 
 static inline void vm_exec_wr1(vm_state *vm) {
-	vm_status_ram_write(vm, 1, vm->regs.accum);
+	ram_write_status(vm_ram_get_chip(vm), vm->dp.reg_ptr, 1, vm->regs.accum);
 }
 
 static inline void vm_exec_wr2(vm_state *vm) {
-	vm_status_ram_write(vm, 2, vm->regs.accum);
+	ram_write_status(vm_ram_get_chip(vm), vm->dp.reg_ptr, 2, vm->regs.accum);
 }
 
 static inline void vm_exec_wr3(vm_state *vm) {
-	vm_status_ram_write(vm, 3, vm->regs.accum);
+	ram_write_status(vm_ram_get_chip(vm), vm->dp.reg_ptr, 3, vm->regs.accum);
 }
 
 static inline void vm_exec_sbm(vm_state *vm) {
-	uint8_t result = ~(vm_ram_read(vm));
+	uint8_t result = ~(ram_read_half(vm_ram_get_chip(vm), vm->dp.reg_ptr, vm->dp.half_ptr));
 	uint8_t borrow = (uint8_t) (vm->regs.carry == 1 ? 0 : 1);
 	result += vm->regs.accum + borrow;
 	vm->regs.accum = (uint8_t) (result & 0xF);
@@ -220,15 +188,15 @@ static inline void vm_exec_sbm(vm_state *vm) {
 }
 
 static inline void vm_exec_rdm(vm_state *vm) {
-	vm->regs.accum = vm_ram_read(vm);
+	vm->regs.accum = ram_read_half(vm_ram_get_chip(vm), vm->dp.reg_ptr, vm->dp.half_ptr);
 }
 
 static inline void vm_exec_rdr(vm_state *vm) {
-	//TODO: IO
+	vm->regs.accum = rom_read_io(vm_rom_get_chip(vm));
 }
 
 static inline void vm_exec_adm(vm_state *vm) {
-	uint8_t result = vm_ram_read(vm);
+	uint8_t result = ram_read_half(vm_ram_get_chip(vm), vm->dp.reg_ptr, vm->dp.half_ptr);
 	result += vm->regs.accum + vm->regs.carry;
 	vm->regs.accum = (uint8_t) (result & 0xF);
 	if(result > 0xF) vm->regs.carry = 1;
@@ -236,19 +204,19 @@ static inline void vm_exec_adm(vm_state *vm) {
 }
 
 static inline void vm_exec_rd0(vm_state *vm) {
-	vm->regs.accum = vm_status_ram_read(vm, 0);
+	vm->regs.accum = ram_read_status(vm_ram_get_chip(vm), vm->dp.reg_ptr, 0);
 }
 
 static inline void vm_exec_rd1(vm_state *vm) {
-	vm->regs.accum = vm_status_ram_read(vm, 1);
+	vm->regs.accum = ram_read_status(vm_ram_get_chip(vm), vm->dp.reg_ptr, 1);
 }
 
 static inline void vm_exec_rd2(vm_state *vm) {
-	vm->regs.accum = vm_status_ram_read(vm, 2);
+	vm->regs.accum = ram_read_status(vm_ram_get_chip(vm), vm->dp.reg_ptr, 2);
 }
 
 static inline void vm_exec_rd3(vm_state *vm) {
-	vm->regs.accum = vm_status_ram_read(vm, 3);
+	vm->regs.accum = ram_read_status(vm_ram_get_chip(vm), vm->dp.reg_ptr, 3);
 }
 
 static inline void vm_exec_clb(vm_state *vm) {
@@ -410,15 +378,16 @@ static void vm_exec_insn(vm_state *vm, const insn_def *def, uint8_t op) {
 		case OP_DAA: vm_exec_daa(vm); break;
 		case OP_KBP: vm_exec_kbp(vm); break;
 		case OP_DCL: vm_exec_dcl(vm); break;
+		case OP_ESIZE: break;
 	}
 }
 
 static inline bool vm_is_terminated(vm_state *vm) {
-	return vm_status_ram_read_dp(vm, 0xF, 0) == 1;
+	return ram_read_status(vm->ram[0][3], 3, 0) == 1;
 }
 
 static inline void vm_terminate(vm_state *vm) {
-	vm_status_ram_write_dp(vm, 0xF, 0, 1);
+	ram_write_status(vm->ram[0][3], 3, 0, 1);
 }
 
 void vm_tick(vm_state *vm) {
@@ -438,5 +407,10 @@ void vm_run(vm_state *vm) {
 }
 
 void vm_destroy(vm_state *vm) {
+	for(int i = 0; i < 8; i++) {
+		for(int j = 0; j < 4; j++) ram_destroy(vm->ram[i][j]);
+		rom_destroy(vm->rom[i * 2]);
+		rom_destroy(vm->rom[i * 2 + 1]);
+	}
 	free(vm);
 }

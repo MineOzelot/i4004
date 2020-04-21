@@ -17,7 +17,7 @@
 
         fim r0:r1, 0xEB
         jms and
-        ld r0
+        ld  r0
         wrr
 
         vm_terminate
