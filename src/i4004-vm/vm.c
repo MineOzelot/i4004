@@ -2,12 +2,14 @@
 #include <memory.h>
 #include <i4004/insn_definitions.h>
 #include "vm.h"
+#include "vmi.h"
 
 vm_state *vm_create() {
 	vm_state *vm = malloc(sizeof(vm_state));
 
 	memset(vm, 0, sizeof(vm_state));
-	vm->ram[0][3] = ram_create(vm);
+
+	vmi_register_ram_chips(vm);
 
 	return vm;
 }
@@ -382,20 +384,12 @@ static void vm_exec_insn(vm_state *vm, const insn_def *def, uint8_t op) {
 	}
 }
 
-static inline bool vm_is_terminated(vm_state *vm) {
-	return ram_read_status(vm->ram[0][3], 3, 0) == 1;
-}
-
-static inline void vm_terminate(vm_state *vm) {
-	ram_write_status(vm->ram[0][3], 3, 0, 1);
-}
-
 void vm_tick(vm_state *vm) {
 	uint8_t op = vm_read_pc(vm);
 	enum e_opcode e_op = instruction_lookup[op];
 	if(e_op == OP_ESIZE) {
 		fprintf(stderr, "vm error: unsupported opcode: %X\n", op);
-		vm_terminate(vm);
+		vmi_set_state(vm, VM_STATE_TERMINATED);
 		return;
 	}
 	const insn_def *def = &instruction_defs[e_op];
@@ -403,7 +397,7 @@ void vm_tick(vm_state *vm) {
 }
 
 void vm_run(vm_state *vm) {
-	while(!vm_is_terminated(vm)) vm_tick(vm);
+	while(vmi_get_state(vm) != VM_STATE_TERMINATED) vm_tick(vm);
 }
 
 void vm_destroy(vm_state *vm) {
