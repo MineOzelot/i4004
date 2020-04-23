@@ -11,8 +11,17 @@ int main(int argc, char *argv[]) {
 
 	const char *image_file = 0;
 
-	while((opt = getopt(argc, argv, "")) != -1) {
+	const char *input_file = 0;
+	const char *output_file = 0;
+
+	while((opt = getopt(argc, argv, "i:o:")) != -1) {
 		switch(opt) {
+			case 'i':
+				input_file = optarg;
+				break;
+			case 'o':
+				output_file = optarg;
+				break;
 			case '?':
 				fprintf(stderr, "error: unknown option character `\\x%x`\n", optopt);
 				return 1;
@@ -36,7 +45,6 @@ int main(int argc, char *argv[]) {
 	int ret_val = 1;
 
 	uint8_t *code_section = 0;
-	uint8_t *data_section = 0;
 
 	FILE *image = fopen(image_file, "rb");
 	if(!image) {
@@ -53,6 +61,8 @@ int main(int argc, char *argv[]) {
 
 	vm_state *vm = vm_create();
 	vm_put_section(vm, code_section);
+	if(input_file) vm_set_input_file(vm, input_file);
+	if(output_file) vm_set_output_file(vm, output_file);
 
 	vm_run(vm);
 

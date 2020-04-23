@@ -35,11 +35,15 @@ typedef struct vm_state {
 	rom_chip *rom[16];
 
 	bool pin10;
+
+	FILE *in_file, *out_file;
 } vm_state;
 
 vm_state *vm_create();
 
 void vm_put_section(vm_state *vm, uint8_t *section);
+void vm_set_input_file(vm_state *vm, const char *file);
+void vm_set_output_file(vm_state *vm, const char *file);
 
 void vm_tick(vm_state *vm);
 void vm_run(vm_state *vm);

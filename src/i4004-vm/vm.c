@@ -20,6 +20,24 @@ void vm_put_section(vm_state *vm, uint8_t *section) {
 	}
 }
 
+void vm_set_input_file(vm_state *vm, const char *file) {
+	FILE *f = fopen(file, "rb");
+	if(!f) {
+		fprintf(stderr, "error: vm could not open input file\n");
+		return;
+	}
+	vm->in_file = f;
+}
+
+void vm_set_output_file(vm_state *vm, const char *file) {
+	FILE *f = fopen(file, "wb");
+	if(!f) {
+		fprintf(stderr, "error: vm could not open output file\n");
+		return;
+	}
+	vm->out_file = f;
+}
+
 static inline uint8_t vm_read_pc(vm_state *vm) {
 	uint8_t byte = rom_read_byte(vm->rom[vm->regs.pc >> 8], (uint8_t) (vm->regs.pc & 0xFF));
 	vm->regs.pc++;
@@ -125,8 +143,8 @@ static inline void vm_exec_sub(vm_state *vm, uint8_t reg) {
 	uint8_t borrow = (uint8_t) (vm->regs.carry == 1 ? 0 : 1);
 	result += vm->regs.accum + borrow;
 	vm->regs.accum = (uint8_t) (result & 0xF);
-	if(result > 0xF) vm->regs.carry = 0;
-	else vm->regs.carry = 1;
+	if(result > 0xF) vm->regs.carry = 1;
+	else vm->regs.carry = 0;
 }
 
 static inline void vm_exec_ld(vm_state *vm, uint8_t reg) {
@@ -406,5 +424,7 @@ void vm_destroy(vm_state *vm) {
 		rom_destroy(vm->rom[i * 2]);
 		rom_destroy(vm->rom[i * 2 + 1]);
 	}
+	if(vm->in_file) fclose(vm->in_file);
+	if(vm->out_file) fclose(vm->out_file);
 	free(vm);
 }

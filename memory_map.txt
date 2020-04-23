@@ -1,0 +1,39 @@
+bank 0: core vm memory
+    chip 2: PC, Flags
+        reg 0:
+            (0-3): PC
+            (4-7): Flags
+    chip 3: vm interface
+        reg 0: vm io register
+            (0-1): out character
+            (2-3): in character
+            (4-5): file out byte
+            (6-7): file in byte
+            s0: vm out
+            s1: vm in
+            s2: vm file out
+            s3: vm file in
+        reg 3: vm state register
+            (0-7): delay value
+            s0: vm state; 0 - active, 1 - terminated, 2 - sleeping
+bank 1: i8086 registers
+    chip 0:
+        reg 0: AX, BX, CX, DX - main registers
+            (0-1): AL
+            (2-3): AH
+            (4-5): BL
+            (6-7): BH
+            (8-9): CL
+            (A-B): CH
+            (C-D): DL
+            (E-F): DH
+        reg 1: SI, DI, BP, SP - index registers
+            (0-3): SI
+            (4-7): DI
+            (8-B): BP
+            (C-F): SP
+        reg 2: CS, DS, ES, SS
+            (0-3): CS
+            (4-7): DS
+            (8-B): ES
+            (C-F): SS
