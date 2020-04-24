@@ -22,13 +22,28 @@ struct token_list {
 
 typedef struct {
 	list_head list;
+	size_t ident;
+	position pos;
+} ident_list;
+
+typedef struct {
+	list_head list;
+	size_t ident;
+	token_list *tokens;
+} replace_list;
+
+typedef struct {
+	list_head list;
 	size_t name;
+	ident_list *params;
 	token_list *tokens;
 } macro;
 
 typedef struct {
 	symtbl *tbl;
 	input_file *in_stack;
+
+	token tok;
 
 	token_list *tok_list;
 	token_list *tok_list_tail;

@@ -122,7 +122,7 @@ static arg *parser_arglist(parser_state *state) {
 		parser_next(state);
 		next_arg = parser_arg(state, cur_arg);
 		if(!next_arg) {
-			position_error(state->tok.pos, "expected argument");
+			position_error(state->tok.pos, "expected argument\n");
 			list_head_destroy(first_arg);
 			parser_recover(state);
 			return 0;
