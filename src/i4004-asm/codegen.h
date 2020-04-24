@@ -57,6 +57,8 @@ typedef struct {
 	symbol *symbols;
 	reference *references;
 
+	size_t cur_page;
+
 	struct {
 		size_t opcodes[OP_ESIZE];
 		size_t jcn_aliases[JCN_ESIZE];

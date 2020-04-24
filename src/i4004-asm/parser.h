@@ -40,6 +40,8 @@ struct arg {
 
 enum e_directive {
 	DIR_ORG,
+	DIR_PAGE,
+	DIR_UNDEF
 };
 
 typedef struct directive directive;
@@ -74,8 +76,9 @@ typedef struct {
 	insn *insns_tail;
 
 	directive *dirs;
+	directive *dirs_tail;
 
-	size_t kw_dir_org;
+	size_t kw_dir_org, kw_dir_page;
 } parser_state;
 
 parser_state *parser_start(preproc_state *lexer);

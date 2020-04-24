@@ -8,6 +8,10 @@ int position_vprintf(position pos, enum e_log_level lvl, const char *__restrict 
 			level = "error";
 			stream = stderr;
 			break;
+		case LOG_WARNING:
+			level = "warning";
+			stream = stderr;
+			break;
 	}
 	int ret = fprintf(stderr, "%s:%zu:%zu: %s: ", pos.filename, pos.line, pos.column, level);
 	if(ret < 0) return ret;

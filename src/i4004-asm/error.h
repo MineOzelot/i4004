@@ -13,7 +13,8 @@ typedef struct {
 } position;
 
 enum e_log_level {
-	LOG_ERROR
+	LOG_ERROR,
+	LOG_WARNING
 };
 
 int position_vprintf(position pos, enum e_log_level lvl, const char *__restrict fmt, va_list va);
@@ -32,6 +33,15 @@ static inline int position_error(position pos, const char *__restrict fmt, ...) 
 	va_list va;
 	va_start(va, fmt);
 	int ret = position_vprintf(pos, LOG_ERROR, fmt, va);
+	va_end(va);
+	return ret;
+}
+
+__attribute__(( format(printf, 2, 3) ))
+static inline int position_warning(position pos, const char *__restrict fmt, ...) {
+	va_list va;
+	va_start(va, fmt);
+	int ret = position_vprintf(pos, LOG_WARNING, fmt, va);
 	va_end(va);
 	return ret;
 }

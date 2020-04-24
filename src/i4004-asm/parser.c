@@ -1,5 +1,4 @@
 #include "parser.h"
-#include "lexer.h"
 
 parser_state *parser_start(preproc_state *lexer) {
 	parser_state *state = malloc(sizeof(parser_state));
@@ -10,9 +9,10 @@ parser_state *parser_start(preproc_state *lexer) {
 
 	state->insns_head = state->insns_tail = malloc(sizeof(insn));
 
-	state->dirs = 0;
+	state->dirs = state->dirs_tail = 0;
 
 	state->kw_dir_org = symtbl_ident(lexer->tbl, string_from("org", 3));
+	state->kw_dir_page = symtbl_ident(lexer->tbl, string_from("page", 4));
 
 	return state;
 }
@@ -171,9 +171,15 @@ static void parser_ident(parser_state *state) {
 
 /* .code */
 static void parser_directive(parser_state *state) {
-	if(state->tok.ident == state->kw_dir_org) {
+	enum e_directive e_dir = DIR_UNDEF;
+	if(state->tok.ident == state->kw_dir_org) e_dir = DIR_ORG;
+	else if(state->tok.ident == state->kw_dir_page) e_dir = DIR_PAGE;
+
+	if(e_dir == DIR_ORG || e_dir == DIR_PAGE) {
 		if(state->lookahead.type != TOK_NUMBER) {
-			position_error(state->lookahead.pos, "expected address after .org directive\n");
+			position_error(state->lookahead.pos, "expected address after %s directive\n",
+			               symtbl_get(state->lexer->tbl, state->tok.ident)
+			);
 			state->iserr = true;
 			parser_recover(state);
 			return;
@@ -182,10 +188,15 @@ static void parser_directive(parser_state *state) {
 		parser_next(state);
 
 		directive *dir = malloc(sizeof(directive));
-		dir->dir = DIR_ORG;
+		dir->dir = e_dir;
 		dir->num = addr;
-		dir->list.next = (list_head *) state->dirs;
-		state->dirs = dir;
+		dir->list.next = 0;
+		if(state->dirs_tail) {
+			state->dirs_tail->list.next = (list_head *) dir;
+			state->dirs_tail = dir;
+		} else {
+			state->dirs = state->dirs_tail = dir;
+		}
 	} else {
 		position_error(state->tok.pos, "unrecognized directive: %s\n",
 		               symtbl_get(state->lexer->tbl, state->tok.ident)
@@ -205,6 +216,8 @@ static const char *token_to_string(enum token_type type) {
 		case TOK_DIRECTIVE: return "tok_directive";
 
 		case TOK_NEWLINE: return "tok_newline";
+
+		default:break;
 	}
 	if(type > 0 && type < 256) return "tok_punctuation";
 	return "tok_undefined";
