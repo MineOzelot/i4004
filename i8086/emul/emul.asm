@@ -1,4 +1,5 @@
 %include "vm.inc"
+%include "ram.inc"
 
 print:
     fim r4:r5, 0
@@ -10,19 +11,15 @@ print:
     xch r4
     add r4
 
-    fim_src r8:r9, 0xC0
-    wrm
-
-    fim_src r8:r9, 0xC7
-    rdm
+    ram_write r8:r9, 0xC0
+    ram_read r8:r9, 0xC7
 
     xch r4
     add r4
     add r5
     xch r4
 
-    fim_src r8:r9, 0xC1
-    wrm
+    ram_write r8:r9, 0xC1
 
     wr0
 

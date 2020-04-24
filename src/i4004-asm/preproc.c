@@ -20,8 +20,18 @@ static void preproc_pop(preproc_state *state) {
 	state->is_newline = true;
 }
 
+static token preproc_take(preproc_state *state) ;
 static enum token_type preproc_next(preproc_state *state) {
-	return (state->tok = lexer_lex(state->in_stack->lexer)).type;
+eof:
+	state->tok = lexer_lex(state->in_stack->lexer);
+	if(state->tok.type == TOK_EOF) {
+		if(state->in_stack->list.next) {
+			preproc_pop(state);
+			goto eof;
+		}
+	}
+
+	return state->tok.type;
 }
 
 static token preproc_take(preproc_state *state) {
@@ -144,8 +154,9 @@ static void preproc_directive(preproc_state *state) {
 		token_list *macro_record_tail = macro_record;
 		macro_record->list.next = 0;
 		macro_record->tok = state->tok;
-		while(state->is_macro_recording) {
+		while(true) {
 			token tok = preproc_token(state);
+			if(!state->is_macro_recording) break;
 			if(tok.type == TOK_EOF && state->is_macro_recording) {
 				position_error(pos, "unterminated %%macro directive");
 				state->iserr = true;
@@ -246,6 +257,7 @@ static replace_list *preproc_macro_arglist(preproc_state *state) {
 static void preproc_macro(preproc_state *state, macro *m) {
 	position pos = state->tok.pos;
 	replace_list *reps = preproc_macro_arglist(state);
+	preproc_expect_newline(state);
 	size_t params_count = list_head_size(m->params);
 	size_t args_count = list_head_size(reps);
 
@@ -298,13 +310,6 @@ static void preproc_macro(preproc_state *state, macro *m) {
 static token preproc_handle(preproc_state *state) {
 again:
 	switch(state->tok.type) {
-		case TOK_EOF:
-			if(state->in_stack->list.next) {
-				preproc_pop(state);
-				goto again;
-			} else {
-				return preproc_take(state);
-			}
 		case TOK_NEWLINE:
 			state->is_newline = true;
 			return preproc_take(state);

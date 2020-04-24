@@ -1,10 +1,6 @@
-%macro  fim_src reg, addr
-        fim reg, addr
-        src reg
-%endmacro
-
 %macro  vm_set_state new_state
-        fim_src r0:r1, 0xF0
+        fim r0:r1, 0xF0
+        src r0:r1
         ldm new_state
         wr0
 %endmacro
